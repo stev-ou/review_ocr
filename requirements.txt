@@ -1,3 +1,6 @@
 pytesseract
 pillow
 wand
+pypdf2
+beautifulsoup4
+requests
