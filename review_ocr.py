@@ -10,9 +10,15 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
 import urllib
+from pymongo import MongoClient
+
+client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
+        "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
+db = client['test_db']
+collection = db['joe_test']
 
 CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
-SEMESTERS = ["Spring", "Summer", "Fall"]
+SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
  
 def pdf_splitter(path):
 	fname = os.path.splitext(os.path.basename(path))[0]
@@ -45,7 +51,7 @@ for i, link in enumerate(soup.findAll('a')):
 		# Now to aptly name these files... finna get ugly here
 		for year in CURRENT_YEARS:
 			if year in sel:
-				for semester in SEMESTERS:
+				for semester in SEMESTERS.keys():
 					if semester in sel:
 
 						if "Sciences" in sel:
@@ -85,7 +91,7 @@ for i, link in enumerate(soup.findAll('a')):
 
 
 						urls.append(full_url)
-						names.append(col + semester.lower() + year)
+						names.append(col + year + SEMESTERS[semester])
 						continue
 """
 
@@ -94,23 +100,18 @@ for i, link in enumerate(soup.findAll('a')):
 # THIS IS WHERE LOOP WILL START
 
 dbdict =   {}
-instructor2 = {} # In case there is a second instructor
-
-
-
-# used for averaging
-dcount = 0
-icount = 0
+instructor2 = {"Instructor First Name": "Joe", "Instructor Last Name": "Lovoi"} # In case there is a second instructor
+f = "bus201410"
 
 # Can't read from pdfs, so we need to convert each one to a jpg
-with Img(filename='pdfs/page1.pdf', resolution=300) as img:
+with Img(filename='pdfs/' + f + '.pdf', resolution=300) as img:
 	img.compression_quality = 99
 	# rotate image so it can be properly read, may or may not be necessary in batch run
 	img.rotate(90)
-	img.save(filename='pdfs/page1.jpg')
+	img.save(filename='pdfs/' + f + '.jpg')
 
 # Now that we have a jpg, we can read it into text -  just a massive wall of text
-img = Image.open('pdfs/page1.jpg')
+img = Image.open('pdfs/' + f + '.jpg')
 text = pytesseract.image_to_string(img)
 
 # list of the dbdictionaries that will be added
@@ -134,13 +135,13 @@ while i < len(lines):
 		i += 1
 		while "Response" not in lines[i]:
 			if len(lines[i]) >= 3:
+				tokens = lines[i].split(" ")
 				i += 1
 				# This is to handle wrapping text
 				if len(lines[i]) >= 3:
 					lines[i-1] += " " + lines[i]
-				# Question Number will be incorrect here if there are more than 9 questions...
-				# but its unimportant data anyway
-				db_objects.append({"Question": lines[i-1][3:], "Question Number": int(lines[i-1][0])})
+				db_objects.append({"Question": lines[i-1][3:].lstrip(" "), 
+									"Question Number": int(tokens[0].strip('.'))})
 				i += 1
 			else:
 				i += 1
@@ -236,7 +237,6 @@ while i < len(lines):
 		instructor2["Instructor First Name"] = tokens[4]
 		instructor2["Instructor Last Name"] = tokens[5]
 
-
 	elif "Instructor:" in lines[i]:
 		tokens = lines[i].split(" ")
 		dbdict["Instructor First Name"] = tokens[1]
@@ -248,28 +248,28 @@ while i < len(lines):
 	i += 1
 
 for i in range(0, len(db_objects)):
-	# Term Code
-	db_objects[i]["College Code"]: dbdict["College Code"]
+	db_objects[i]["Term Code"] = int(f[-6:])
+	db_objects[i]["College Code"] = dbdict["College Code"]
 	db_objects[i]["Subject Code"] = dbdict["Subject Code"]
 	db_objects[i]["Course Number"] = dbdict["Course Number"]
 	db_objects[i]["Section Number"] = dbdict["Section Number"]
 	db_objects[i]["Section Title"] = dbdict["Section Title"]
 	db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
 	db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
+	collection.insert_one(db_objects[i])
 	# Instructor ID
-
-pprint.pprint(db_objects)
 
 # If there is an Instructor 2, just change the name and ID
 if instructor2:
-	print("\n\n\n\n\nHELLLLOOOOO\n\n\n\n\n")
 	for i in range(0, len(db_objects)):
 		# Instructor ID
 		db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
 		db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
+		# Needed so that we arent trying to add a duplicate object_id
+		db_objects[i].pop('_id', None)
+		collection.insert_one(db_objects[i])
 
-pprint.pprint(db_objects)
-exit()
+
 
 
 
