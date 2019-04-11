@@ -32,7 +32,7 @@ def pdf_splitter(path):
 		print('Created: {}'.format(output_filename))
 	return pnum
 
-
+"""
 urls = []
 names = []
 url = "http://www.ou.edu/provost/course-evaluation-data"
@@ -83,29 +83,21 @@ for i, link in enumerate(soup.findAll('a')):
 							col = "prof"
 
 
+
 						urls.append(full_url)
 						names.append(col + semester.lower() + year)
-print(names)
-
-
-
+						continue
 """
-# This is going to be needed to get the enrollment totals for each course
-enrollement_totals = {}
 
 
 
 # THIS IS WHERE LOOP WILL START
 
+dbdict =   {}
+instructor2 = {} # In case there is a second instructor
 
-# Need to make these 0 so we can average later, rest of the items will be added in loop
-dbdict =   {
-				"Avg Instructor Rating In Section": 0,
-				"SD Instructor Rating In Section": 0,
-				"Avg Department Rating": 0,
-				"SD Department Rating": 0,
-				"Course Enrollment": 0
-				}
+
+
 # used for averaging
 dcount = 0
 icount = 0
@@ -121,22 +113,41 @@ with Img(filename='pdfs/page1.pdf', resolution=300) as img:
 img = Image.open('pdfs/page1.jpg')
 text = pytesseract.image_to_string(img)
 
+# list of the dbdictionaries that will be added
+db_objects = []
 
-for line in text.splitlines():
-	print(line)
+lines = text.splitlines()
+i = 0
+while i < len(lines):
+	#print(lines[i])
 	dbdict["Term Code"] = 201410
 	"""
-"""
 	TODO: Get Term Code
 	Where are we getting:
-		Instructor ID
+		Instructor ID - lets just hash
 		Dept Rank
 		(SD) Course Rating - is this similar college?
 	What do we do with multiple instructors?
 	"""
-"""
-	if "College of" in line:
-		tokens = line.split(" ")
+	
+	if "Question" in lines[i]:
+		i += 1
+		while "Response" not in lines[i]:
+			if len(lines[i]) >= 3:
+				i += 1
+				# This is to handle wrapping text
+				if len(lines[i]) >= 3:
+					lines[i-1] += " " + lines[i]
+				# Question Number will be incorrect here if there are more than 9 questions...
+				# but its unimportant data anyway
+				db_objects.append({"Question": lines[i-1][3:], "Question Number": int(lines[i-1][0])})
+				i += 1
+			else:
+				i += 1
+	
+
+	if "College of" in lines[i]:
+		tokens = lines[i].split(" ")
 
 		if tokens[2] == "Business":
 			dbdict["College Code"] = "BUS"
@@ -183,60 +194,95 @@ for line in text.splitlines():
 
 		#ROTC
 
-	elif "INDIVIDUAL" in line :
-		icount += 1
-		tokens = line.split(" ")
-		dbdict["Avg Instructor Rating In Section"] += float(tokens[1])
-		dbdict["SD Instructor Rating In Section"] += float(tokens[3])
+	elif "Deviation" in lines[i]:
+		i += 1
+		# x is to keep track of which db object we are adding data to
+		x = 0
+		while x < len(db_objects):
+			tokens = lines[i].split(" ")
+			if "INDIVIDUAL" in lines[i]:
+				db_objects[x]["Mean"] = float(tokens[1])
+				db_objects[x]["Median"] = int(tokens[2])
+				db_objects[x]["Standard Deviation"] = float(tokens[3])
+				db_objects[x]["Percent Rank - Department"] = float(tokens[-1])
+			elif "DEPARTMENT" in lines[i]:
+				db_objects[x]["Department Mean"] = float(tokens[1])
+				db_objects[x]["Department Median"] = int(tokens[2])
+				db_objects[x]["Department Standard Deviation"] = float(tokens[3])
+			elif "SIMILAR" in lines[i]:
+				db_objects[x]["Similar College Mean"] = float(tokens[1])
+				db_objects[x]["Similar College Median"] = int(tokens[2])
+			elif "COLLEGE" in lines[i]:
+				db_objects[x]["College Mean"] = float(tokens[1])
+				db_objects[x]["College Median"] = int(tokens[2])
+				x += 1
+			i += 1
 
-	elif "Total Enrollment" in line:
-		tokens = line.split(" ")
+	elif "Total Enrollment" in lines[i]:
+		tokens = lines[i].split(" ")
 		dbdict["Instructor Enrollment"] = int(tokens[2])
 
-	elif "Course:" in line:
-		tokens = line.split(" ")
+	elif "Course:" in lines[i]:
+		tokens = lines[i].split(" ")
 		dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
 		dbdict["Subject Code"] = tokens[1]
 		dbdict["Course Number"] = int(tokens[2][:4])
+		dbdict["Section Number"] = int(tokens[2][-3:])
 
-	elif "Instructor:" in line:
-		tokens = line.split(" ")
+	elif "Instructors:" in lines[i]:
+		tokens = lines[i].split(" ")
+		dbdict["Instructor First Name"] = tokens[1]
+		dbdict["Instructor Last Name"] = tokens[2]
+		instructor2["Instructor First Name"] = tokens[4]
+		instructor2["Instructor Last Name"] = tokens[5]
+
+
+	elif "Instructor:" in lines[i]:
+		tokens = lines[i].split(" ")
 		dbdict["Instructor First Name"] = tokens[1]
 		dbdict["Instructor Last Name"] = tokens[2]
 
-	elif "Section Title" in line:
-		dbdict["Course Title"] = line[15:]
+	elif "Section Title" in lines[i]:
+		dbdict["Section Title"] = lines[i][15:]
 
-	elif "DEPARTMENT" in line:
-		dcount += 1
-		tokens = line.split(" ")
-		dbdict["Avg Department Rating"] += float(tokens[1])
-		dbdict["SD Department Rating"] += float(tokens[3])
+	i += 1
 
-# Add this section's enrollment to enrollment totals
-if dbdict["course_uuid"] in enrollement_totals.keys():
-	enrollement_totals[dbdict["course_uuid"]] += dbdict["Instructor Enrollment"]
-else:
-	enrollement_totals[dbdict["course_uuid"]] = dbdict["Instructor Enrollment"]
+for i in range(0, len(db_objects)):
+	# Term Code
+	db_objects[i]["College Code"]: dbdict["College Code"]
+	db_objects[i]["Subject Code"] = dbdict["Subject Code"]
+	db_objects[i]["Course Number"] = dbdict["Course Number"]
+	db_objects[i]["Section Number"] = dbdict["Section Number"]
+	db_objects[i]["Section Title"] = dbdict["Section Title"]
+	db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
+	db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
+	# Instructor ID
 
-dbdict["Queryable Course String"] = dbdict["Subject Code"].lower() + " " + str(dbdict["Course Number"]) + " " + dbdict["Course Title"].lower()
+pprint.pprint(db_objects)
 
-# Get averages
-dbdict["Avg Instructor Rating In Section"] /= icount
-dbdict["SD Instructor Rating In Section"] /= icount
-dbdict["Avg Department Rating"] /= dcount
-dbdict["SD Department Rating"] /= dcount
+# If there is an Instructor 2, just change the name and ID
+if instructor2:
+	print("\n\n\n\n\nHELLLLOOOOO\n\n\n\n\n")
+	for i in range(0, len(db_objects)):
+		# Instructor ID
+		db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
+		db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
+
+pprint.pprint(db_objects)
+exit()
+
+
 
 
 
 # EXIT LOOP
 
 
-# TODO: Now we need to go back through each item to update total enrollment... is this necessary?
+# TODO: Now we need to go back through each item to update total enrollment... dont think we need to do this
 
 # TODO: Now we add to the database
 
-pprint.pprint(dbdict)
+#pprint.pprint(dbdict)
 
-"""
+
 	
