@@ -12,13 +12,12 @@ cleantest:
 ifeq (,$(wildcard ./test/split/))
 	mkdir test/split
 endif
-else
-	rm -r test/split
-	mkdir test/split
 ifeq (,$(wildcard ./test/jpgs/))
 	mkdir test/jpgs
 endif
 else
+	rm -r test/split
+	mkdir test/split
 	rm -r test/jpgs
 	mkdir test/jpgs
 
