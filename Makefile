@@ -1,7 +1,7 @@
 init:
 	pip3 install -r requirements.txt
 
-test: clean init
+test: init
 	rm -r test/split
 	rm -r test/jpgs
 	mkdir test/split

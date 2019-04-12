@@ -4,6 +4,13 @@ Using Google's Tesseract OCR to extract data from public PDFs
 MAKE SURE THAT TESSERACT IS IN YOUR SYSTEM'S PATH
 	if on ubuntu - sudo apt-get install tesseract-ocr
 
+ALSO MUST HAVE IMAGEMAGICK
+	if on ubuntu - sudo apt-get install libmagickwand-dev
+
+There may be a policy issue with ImageMagick that requires a workaround:
+in /etc/ImageMagick-6/policy.xml make the following changes:
+<policy domain="coder" rights="read" pattern="PDF" />
+
 # USAGE:
 make run
 
