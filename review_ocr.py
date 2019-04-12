@@ -15,10 +15,11 @@ from bs4 import BeautifulSoup
 import requests
 from pymongo import MongoClient
 
+db_name = sys.argv[1]
+
 client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
         "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
-db = client['test_db']
-collection = db['joe_test']
+db = client[db_name]
 
 CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
@@ -37,7 +38,7 @@ def pdf_splitter(path, col, term):
 		output_filename = str(page+1) + col + term + ".pdf"
  		
 		try:
-			with open("pdfs/split/" + output_filename, 'xb') as out:
+			with open(path.split("/", 1)[0] + "split/" + output_filename, 'xb') as out:
 				pdf_writer.write(out)
 				print('Created: {}'.format(output_filename))
 		except FileExistsError:
@@ -128,6 +129,8 @@ def web_crawl(url):
 
 		except urllib.error.HTTPError:
 			print("404 Error on this page... This PDF may not exist yet.\n")
+
+	return names_urls
 		
 
 
@@ -304,6 +307,14 @@ def parse_files(directory):
 
 				i += 1
 
+			# find if we are testing or not, use appropriate collection
+			if bool(sys.argv[2]) == True
+				collection_name = "test_joe"
+			else:
+				collection_name = dbdict["College Code"].upper()
+
+			collection = db[collection_name]
+
 			for i in range(0, len(db_objects)):
 				db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
 				db_objects[i]["College Code"] = dbdict["College Code"]
@@ -342,11 +353,25 @@ def parse_files(directory):
 					collection.insert_one(db_objects[i])
 
 if __name__ == '__main__':
-	url = "http://www.ou.edu/provost/course-evaluation-data"
 
-	web_crawl(url)
-	#pdf_splitter("pdfs/bus.pdf", "bus", "201410")
+	if len(sys.argv) < 3 or len(sys.argv) > 3:
+		print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
 
-	directory = os.fsencode('pdfs/split/')
+	if bool(argv[1]) == True:
+		pdf_splitter("test/bus201410.pdf", name[:-6], name[-6:])
+		directory = os.fsencode('test/split/')
+		parse_files(directory)
+		exit(1)
 
-	#parse_files(directory)
+	else:
+
+		url = "http://www.ou.edu/provost/course-evaluation-data"
+
+		names_urls = web_crawl(url)
+
+		for name, url in names_urls:
+			pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+
+		directory = os.fsencode('pdfs/split/')
+		parse_files(directory)
+		exit(1)
