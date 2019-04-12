@@ -20,7 +20,7 @@ collection = db['joe_test']
 CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
  
-def pdf_splitter(path):
+def pdf_splitter(path, col, term):
 	fname = os.path.splitext(os.path.basename(path))[0]
 	pnum = 0
 	pdf = PdfFileReader(path)
@@ -28,14 +28,17 @@ def pdf_splitter(path):
 		pdf_writer = PdfFileWriter()
 		pdf_writer.addPage(pdf.getPage(page))
  
-		output_filename = '{}_page_{}.pdf'.format(
-			fname, page+1)
- 
-		with open(output_filename, 'wb') as out:
-			pdf_writer.write(out)
+		output_filename = str(page+1) + col + term + ".pdf"
+ 		
+		try:
+			with open("pdfs/split/" + output_filename, 'xb') as out:
+				pdf_writer.write(out)
+				print('Created: {}'.format(output_filename))
+		except FileExistsError:
+			print(output_filename + " ALREADY EXISTS!")
 
 		pnum += 1
-		print('Created: {}'.format(output_filename))
+		
 	return pnum
 
 """
@@ -95,19 +98,22 @@ for i, link in enumerate(soup.findAll('a')):
 						continue
 """
 
-directory = os.fsencode('pdfs/')
+pdf_splitter("pdfs/bus.pdf", "bus", "201410")
+
+directory = os.fsencode('pdfs/split/')
 
 for file in os.listdir(directory):
 	f = os.fsdecode(file)
 	if f.endswith(".pdf"):
+		print("Running: " + f)
 		dbdict =   {}
 		instructor2 = {} # In case there is a second instructor
 
 		# Can't read from pdfs, so we need to convert each one to a jpg
-		with Img(filename='pdfs/' + f, resolution=300) as img:
+		with Img(filename='pdfs/split/' + f, resolution=300) as img:
 			img.compression_quality = 99
 			# rotate image so it can be properly read, may or may not be necessary in batch run
-			img.rotate(90)
+			#img.rotate(90)
 			img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
 
 		# Now that we have a jpg, we can read it into text -  just a massive wall of text
@@ -120,8 +126,6 @@ for file in os.listdir(directory):
 		lines = text.splitlines()
 		i = 0
 		while i < len(lines):
-			#print(lines[i])
-			dbdict["Term Code"] = 201410
 			"""
 			TODO: Get Term Code
 			Where are we getting:
@@ -135,6 +139,7 @@ for file in os.listdir(directory):
 				i += 1
 				while "Response" not in lines[i]:
 					if len(lines[i]) >= 3:
+						print(lines[i])
 						tokens = lines[i].split(" ")
 						i += 1
 						# This is to handle wrapping text
@@ -145,9 +150,15 @@ for file in os.listdir(directory):
 						i += 1
 					else:
 						i += 1
-			
-
+			else:
+				i += 1
+		
+		# Need to iterate twice bc sometimes it reads out of order
+		i = 0
+		while i < len(lines):
+			print(lines[i])
 			if "College of" in lines[i]:
+				print("---------------------------------------------------------------------") 
 				tokens = lines[i].split(" ")
 
 				if tokens[2] == "Business":
@@ -201,6 +212,10 @@ for file in os.listdir(directory):
 				x = 0
 				while x < len(db_objects):
 					tokens = lines[i].split(" ")
+					# Weird bug here
+					for i in range(0, len(tokens)):
+						if tokens[i] == "_":
+							tokens.pop(i)
 					if "INDIVIDUAL" in lines[i]:
 						db_objects[x]["Mean"] = float(tokens[1])
 						db_objects[x]["Median"] = int(tokens[2])
@@ -218,6 +233,7 @@ for file in os.listdir(directory):
 						db_objects[x]["College Median"] = int(tokens[2])
 						x += 1
 					i += 1
+					#ISSUE HERE ============================================================================
 
 			elif "Total Enrollment" in lines[i]:
 				tokens = lines[i].split(" ")

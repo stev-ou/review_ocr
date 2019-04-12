@@ -4,3 +4,5 @@ wand
 pypdf2
 beautifulsoup4
 requests
+pymongo
+urllib
