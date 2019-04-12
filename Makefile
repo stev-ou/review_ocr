@@ -11,11 +11,10 @@ test: clean init
 cleantest:
 ifeq (,$(wildcard ./test/split/))
 	mkdir test/split
-endif
+
 ifeq (,$(wildcard ./test/jpgs/))
 	mkdir test/jpgs
 endif
-else
 	rm -r test/split
 	mkdir test/split
 	rm -r test/jpgs
