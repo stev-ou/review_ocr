@@ -20,6 +20,11 @@ run: init
 	clean
 
 clean:
+ifeq (,$(wildcard ./pdfs/))
+	mkdir pdfs/
+	mkdir pdfs/split/
+	mkdir pdfs/jpgs/
+endif
 	rm -r pdfs/
 	mkdir pdfs/
 	mkdir pdfs/split/
