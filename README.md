@@ -1,6 +1,9 @@
 # review_ocr
 Using Google's Tesseract OCR to extract data from public PDFs
 
+MAKE SURE THAT TESSERACT IS IN YOUR SYSTEM'S PATH
+	if on ubuntu - sudo apt-get install tesseract-ocr
+
 # USAGE:
 make run
 

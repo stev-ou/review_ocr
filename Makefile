@@ -1,15 +1,21 @@
 init:
-	pip install -r requirements.txt
+	pip3 install -r requirements.txt
 
-test:
+test: init
+	rm -r test/split
+	rm -r test/jpgs
+	mkdir test/split
+	mkdir test/jpgs
 	python3 review_ocr.py test_db True
+
+cleantest:
 	rm -r test/split
 	rm -r test/jpgs
 	mkdir test/split
 	mkdir test/jpgs
 
-run:
-	init
+run: init
+	clean
 	python3 review_ocr.py reviews-db False
 	clean
 
