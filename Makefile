@@ -2,7 +2,7 @@ init:
 	pip install -r requirements.txt
 
 .PHONY: init test
-test:
+test: review_ocr.py
 	init
 	python3 review_ocr.py test_db True
 	rm -r test/split
@@ -11,7 +11,7 @@ test:
 	mkdir test/jpgs
 
 .PHONY: init run
-run:
+run: review_ocr.py clean
 	init
 	python3 review_ocr.py reviews-db False
 	clean
