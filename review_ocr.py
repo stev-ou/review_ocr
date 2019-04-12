@@ -10,6 +10,7 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
 import urllib.request
+import urllib.error
 from pymongo import MongoClient
 
 client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
@@ -94,27 +95,38 @@ def web_crawl(url):
 
 							elif "Professional" in sel:
 								col = "prof"
+							else:
+								continue
 
 
 							# We are only saving the urls/names of current years and desired colleges
-							urls.append(full_url)
-							names.append(str(col) + str(year) + str(SEMESTERS[semester]))
-							print("Adding %s to Write Queue..." % (str(col) + str(year) + str(SEMESTERS[semester])))
-							print(full_url + "\n")
+							# Gotta git rid of some unnecessary characters in the url
+							pdf_url = full_url[:18] + full_url[49:]
+							if pdf_url not in urls:
+								urls.append(pdf_url)
+								names.append(str(col) + str(year) + str(SEMESTERS[semester]))
+								print("Adding %s to Write Queue..." % (str(col) + str(year) + str(SEMESTERS[semester])))
+								print(pdf_url + "\n")
 							continue
 
 	names_urls = zip(names, urls)
 	# Now we "download" the pdfs by writing to pdf files
 	for name, url in names_urls:
-		req = urllib.request(url)
-		resp = urllib.urlopen(req)
 		try:
-			pdf = open("pdfs/" + name, 'xb')
-			print("Writing " + name)
-			pdf.write(resp.read())
-		except FileExistsError:
-			print(name + " ALREADY EXISTS IN DIRECTORY!!")
-		pdf.close()
+			print("Attempting to open: " + url)
+			resp = urllib.request.urlopen(url)
+
+			try:
+				pdf = open("pdfs/" + name + ".pdf", 'xb')
+				print("Writing " + name + "\n")
+				pdf.write(resp.read())
+				pdf.close()
+			except FileExistsError:
+				print(name + " ALREADY EXISTS IN DIRECTORY!!\n")
+
+		except urllib.error.HTTPError:
+			print("404 Error on this page... This PDF may not exist yet.\n")
+		
 
 
 
