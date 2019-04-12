@@ -38,7 +38,7 @@ def pdf_splitter(path, col, term):
 		output_filename = str(page+1) + col + term + ".pdf"
  		
 		try:
-			with open(path.split("/", 1)[0] + "split/" + output_filename, 'xb') as out:
+			with open(path.split("/", 1)[0] + "/split/" + output_filename, 'xb') as out:
 				pdf_writer.write(out)
 				print('Created: {}'.format(output_filename))
 		except FileExistsError:
@@ -145,7 +145,7 @@ def parse_files(directory):
 			instructor2 = {} # In case there is a second instructor
 
 			# Can't read from pdfs, so we need to convert each one to a jpg
-			with Img(filename='pdfs/split/' + f, resolution=300) as img:
+			with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
 				img.compression_quality = 99
 				img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
 
@@ -308,7 +308,7 @@ def parse_files(directory):
 				i += 1
 
 			# find if we are testing or not, use appropriate collection
-			if bool(sys.argv[2]) == True
+			if bool(sys.argv[2]) == True:
 				collection_name = "test_joe"
 			else:
 				collection_name = dbdict["College Code"].upper()
@@ -357,8 +357,8 @@ if __name__ == '__main__':
 	if len(sys.argv) < 3 or len(sys.argv) > 3:
 		print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
 
-	if bool(argv[1]) == True:
-		pdf_splitter("test/bus201410.pdf", name[:-6], name[-6:])
+	if bool(sys.argv[2]) == True:
+		pdf_splitter("test/bus201410.pdf", "bus", "201410")
 		directory = os.fsencode('test/split/')
 		parse_files(directory)
 		exit(1)
