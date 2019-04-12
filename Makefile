@@ -11,6 +11,7 @@ test: clean init
 cleantest:
 ifeq (,$(wildcard ./test/split/))
 	mkdir test/split
+endif
 
 ifeq (,$(wildcard ./test/jpgs/))
 	mkdir test/jpgs
