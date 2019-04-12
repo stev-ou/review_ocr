@@ -9,9 +9,17 @@ test: init
 	python3 review_ocr.py test_db True
 
 cleantest:
-	rm -r test/split
-	rm -r test/jpgs
+ifeq (,$(wildcard ./test/split/))
 	mkdir test/split
+endif
+else
+	rm -r test/split
+	mkdir test/split
+ifeq (,$(wildcard ./test/jpgs/))
+	mkdir test/jpgs
+endif
+else
+	rm -r test/jpgs
 	mkdir test/jpgs
 
 run: init
