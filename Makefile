@@ -1,7 +1,7 @@
 init:
 	pip3 install -r requirements.txt
 
-test: init
+test: clean init
 	rm -r test/split
 	rm -r test/jpgs
 	mkdir test/split
@@ -22,7 +22,7 @@ else
 	rm -r test/jpgs
 	mkdir test/jpgs
 
-run: init
+run: clean init
 	clean
 	python3 review_ocr.py reviews-db False
 	clean
