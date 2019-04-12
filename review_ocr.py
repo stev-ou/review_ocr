@@ -1,3 +1,8 @@
+import os
+import sys
+import urllib.request
+import urllib.error
+
 try:
 	from PIL import Image
 except ImportError:
@@ -5,12 +10,9 @@ except ImportError:
 import pytesseract
 from wand.image import Image as Img
 import pprint
-import os
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
-import urllib.request
-import urllib.error
 from pymongo import MongoClient
 
 client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
@@ -142,29 +144,18 @@ def parse_files(directory):
 			# Can't read from pdfs, so we need to convert each one to a jpg
 			with Img(filename='pdfs/split/' + f, resolution=300) as img:
 				img.compression_quality = 99
-				# rotate image so it can be properly read, may or may not be necessary in batch run
-				#img.rotate(90)
 				img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
 
 			# Now that we have a jpg, we can read it into text -  just a massive wall of text
 			img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
 			text = pytesseract.image_to_string(img)
 
-			# list of the dbdictionaries that will be added
+			# list of the dbdictionaries that will be added to the DataBase
 			db_objects = []
 
 			lines = text.splitlines()
 			i = 0
-			while i < len(lines):
-				"""
-				TODO: Get Term Code
-				Where are we getting:
-					Instructor ID - lets just hash
-					Dept Rank
-					(SD) Course Rating - is this similar college?
-				What do we do with multiple instructors?
-				"""
-				
+			while i < len(lines):			
 				if "Question" in lines[i]:
 					i += 1
 					while "Response" not in lines[i]:
@@ -257,6 +248,7 @@ def parse_files(directory):
 									db_objects[x]["Median"] = int(tokens[2])
 									db_objects[x]["Standard Deviation"] = float(tokens[3])
 									db_objects[x]["Percent Rank - Department"] = float(tokens[-2])
+									db_objects[x]["Percent Rank - College"] = float(tokens[-1])
 								elif "DEPARTMENT" in lines[i]:
 									db_objects[x]["Department Mean"] = float(tokens[1])
 									db_objects[x]["Department Median"] = int(tokens[2])
@@ -269,7 +261,7 @@ def parse_files(directory):
 									db_objects[x]["College Median"] = int(tokens[2])
 									x += 1
 							except ValueError:
-								print("Bad Data!!!")
+								print("Bad Data! Going to need manual input for this document...")
 								print(tokens)
 						i += 1
 
@@ -321,8 +313,15 @@ def parse_files(directory):
 				db_objects[i]["Section Title"] = dbdict["Section Title"]
 				db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
 				db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
+				find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
+												'Instructor Last Name': dbdict["Instructor Last Name"]})
+				# If this professor already has an ID
+				if find_id != None:
+					db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
+				# Else just use python's hash function to make one for them, should be sufficiently unique
+				else:
+					db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
 				collection.insert_one(db_objects[i])
-				# Instructor ID
 
 			# If there is an Instructor 2, just change the name and ID
 			if instructor2:
@@ -332,6 +331,14 @@ def parse_files(directory):
 					db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
 					# Needed so that we arent trying to add a duplicate object_id
 					db_objects[i].pop('_id', None)
+					find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
+													'Instructor Last Name': dbdict["Instructor Last Name"]})
+					# If this professor already has an ID
+					if find_id != None:
+						db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
+					# Else just use python's hash function to make one for them, should be sufficiently unique
+					else:
+						db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
 					collection.insert_one(db_objects[i])
 
 if __name__ == '__main__':
