@@ -19,6 +19,7 @@ collection = db['joe_test']
 
 CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
+BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——'] # See line 217...
  
 def pdf_splitter(path, col, term):
 	fname = os.path.splitext(os.path.basename(path))[0]
@@ -104,6 +105,7 @@ directory = os.fsencode('pdfs/split/')
 
 for file in os.listdir(directory):
 	f = os.fsdecode(file)
+	#f = '136bus201410.pdf'
 	if f.endswith(".pdf"):
 		print("Running: " + f)
 		dbdict =   {}
@@ -139,7 +141,6 @@ for file in os.listdir(directory):
 				i += 1
 				while "Response" not in lines[i]:
 					if len(lines[i]) >= 3:
-						print(lines[i])
 						tokens = lines[i].split(" ")
 						i += 1
 						# This is to handle wrapping text
@@ -156,9 +157,8 @@ for file in os.listdir(directory):
 		# Need to iterate twice bc sometimes it reads out of order
 		i = 0
 		while i < len(lines):
-			print(lines[i])
+			#print(lines[i])
 			if "College of" in lines[i]:
-				print("---------------------------------------------------------------------") 
 				tokens = lines[i].split(" ")
 
 				if tokens[2] == "Business":
@@ -211,53 +211,74 @@ for file in os.listdir(directory):
 				# x is to keep track of which db object we are adding data to
 				x = 0
 				while x < len(db_objects):
-					tokens = lines[i].split(" ")
-					# Weird bug here
-					for i in range(0, len(tokens)):
-						if tokens[i] == "_":
-							tokens.pop(i)
-					if "INDIVIDUAL" in lines[i]:
-						db_objects[x]["Mean"] = float(tokens[1])
-						db_objects[x]["Median"] = int(tokens[2])
-						db_objects[x]["Standard Deviation"] = float(tokens[3])
-						db_objects[x]["Percent Rank - Department"] = float(tokens[-1])
-					elif "DEPARTMENT" in lines[i]:
-						db_objects[x]["Department Mean"] = float(tokens[1])
-						db_objects[x]["Department Median"] = int(tokens[2])
-						db_objects[x]["Department Standard Deviation"] = float(tokens[3])
-					elif "SIMILAR" in lines[i]:
-						db_objects[x]["Similar College Mean"] = float(tokens[1])
-						db_objects[x]["Similar College Median"] = int(tokens[2])
-					elif "COLLEGE" in lines[i]:
-						db_objects[x]["College Mean"] = float(tokens[1])
-						db_objects[x]["College Median"] = int(tokens[2])
-						x += 1
+					if len(lines[i]) > 2:
+						tokens = lines[i].split(" ")
+
+						# Welcome to Bug City
+						# Weird OCR bug here, its seeing something that I dont on random files
+						for n in range(0, len(tokens) - 1):
+							if tokens[n] in BUG_CITY:
+								tokens.pop(n)
+							# Dude I dont even know...
+							if tokens[n] == 'FE':
+								tokens[n] = 5
+
+						try:
+							if "INDIVIDUAL" in lines[i]:
+								db_objects[x]["Mean"] = float(tokens[1])
+								db_objects[x]["Median"] = int(tokens[2])
+								db_objects[x]["Standard Deviation"] = float(tokens[3])
+								db_objects[x]["Percent Rank - Department"] = float(tokens[-2])
+							elif "DEPARTMENT" in lines[i]:
+								db_objects[x]["Department Mean"] = float(tokens[1])
+								db_objects[x]["Department Median"] = int(tokens[2])
+								db_objects[x]["Department Standard Deviation"] = float(tokens[3])
+							elif "SIMILAR" in lines[i]:
+								db_objects[x]["Similar College Mean"] = float(tokens[1])
+								db_objects[x]["Similar College Median"] = int(tokens[2])
+							elif "COLLEGE" in lines[i]:
+								db_objects[x]["College Mean"] = float(tokens[1])
+								db_objects[x]["College Median"] = int(tokens[2])
+								x += 1
+						except ValueError:
+							print("ISSA NEW BUG LMAO: ")
+							print(tokens)
 					i += 1
-					#ISSUE HERE ============================================================================
 
 			elif "Total Enrollment" in lines[i]:
 				tokens = lines[i].split(" ")
-				dbdict["Instructor Enrollment"] = int(tokens[2])
+				for n in range(0, len(tokens)):
+					if 'Enrollment' in tokens[n]:
+						dbdict["Instructor Enrollment"] = int(tokens[n+1])
 
 			elif "Course:" in lines[i]:
 				tokens = lines[i].split(" ")
 				dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
 				dbdict["Subject Code"] = tokens[1]
-				dbdict["Course Number"] = int(tokens[2][:4])
-				dbdict["Section Number"] = int(tokens[2][-3:])
+				# Some Subject Codes are separated by spaces
+				try:
+					dbdict["Course Number"] = int(tokens[2][:4])
+					dbdict["Section Number"] = int(tokens[2][-3:])
+				except ValueError:
+					dbdict["Subject Code"] += tokens[2]
+					dbdict["Course Number"] = int(tokens[3][:4])
+					dbdict["Section Number"] = int(tokens[3][-3:])
+				
 
-			elif "Instructors:" in lines[i]:
+			elif "Instructors:" in lines[i] or "instructors" in lines[i]:
 				tokens = lines[i].split(" ")
-				dbdict["Instructor First Name"] = tokens[1]
-				dbdict["Instructor Last Name"] = tokens[2]
-				instructor2["Instructor First Name"] = tokens[4]
-				instructor2["Instructor Last Name"] = tokens[5]
+				dbdict["Instructor First Name"] = tokens[1].title()
+				dbdict["Instructor Last Name"] = tokens[2].title()
+				instructor2["Instructor First Name"] = tokens[4].title()
+				instructor2["Instructor Last Name"] = tokens[5].title()
 
-			elif "Instructor:" in lines[i]:
+			elif "Instructor:" in lines[i] or "instructor" in lines[i]:
 				tokens = lines[i].split(" ")
-				dbdict["Instructor First Name"] = tokens[1]
-				dbdict["Instructor Last Name"] = tokens[2]
-
+				dbdict["Instructor First Name"] = tokens[1].title()
+				dbdict["Instructor Last Name"] = tokens[2].title()
+				if len(tokens) > 3:
+					dbdict["Instructor Last Name"] += tokens[3].title()
+			
 			elif "Section Title" in lines[i]:
 				dbdict["Section Title"] = lines[i][15:]
 
