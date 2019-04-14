@@ -20,18 +20,30 @@ db_name = sys.argv[1]
 client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
         "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
 db = client[db_name]
+debug = ""
 
 CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
 BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——'] # See line 217...
 BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35}
+FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
+			"11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. ", "20. ",
+			"21. ", "22. ", "23. ", "24. ", "25. ", "26. ", "27. ", "28. ", "29. ", "30. ",
+			"31. ", "32. ", "33. ", "34. ", "35. ", "36. ", "37. ", "38. ", "39. ", "40. ",
+		]
 
 
 def pdf_splitter(path, col, term):
 	# This will take a pdf and split it into individual pages, saving them to directory pdfs/split
 	fname = os.path.splitext(os.path.basename(path))[0]
 	pnum = 0
-	pdf = PdfFileReader(path)
+	try:
+		pdf = PdfFileReader(path)
+	except FileNotFoundError:
+		print("==========================================================================================")
+		print("Cannot Find File: " + path)
+		print("==========================================================================================")
+		return
 	for page in range(pdf.getNumPages()):
 		pdf_writer = PdfFileWriter()
 		pdf_writer.addPage(pdf.getPage(page))
@@ -46,6 +58,7 @@ def pdf_splitter(path, col, term):
 			print(output_filename + " ALREADY EXISTS!")
 
 		pnum += 1
+
 		
 	return pnum
 
@@ -130,8 +143,9 @@ def web_crawl(url):
 
 		except urllib.error.HTTPError:
 			print("404 Error on this page... This PDF may not exist yet.\n")
+			names.remove(name)
 
-	return names_urls
+	return names
 		
 
 
@@ -158,33 +172,36 @@ def parse_files(directory):
 			db_objects = []
 
 			lines = text.splitlines()
-			i = 0
 			try:
-				while i < len(lines):			
-					if "Question" in lines[i]:
-						i += 1
-						while "Response" not in lines[i]:
-							if len(lines[i]) >= 3:
-								tokens = lines[i].split(" ")
-								i += 1
-								# This is to handle wrapping text
-								if len(lines[i]) >= 3:
-									lines[i-1] += " " + lines[i]
-								db_objects.append({"Question": lines[i-1][3:].lstrip(" "), 
+				for i in range(len(lines)-1, -1, -1):
+					print(lines[i])
+					tokens = lines[i].split(" ")
+					debug = "Question"
+					for q in FIND_Q:
+						if q in lines[i]:	
+							# This is to handle wrapping text
+							if len(lines[i+1]) >= 3:
+								lines[i] += " " + lines[i+1]
+							# Make sure this question has not already been added, iterate through whole list
+							added = False
+							for obj in db_objects:
+								if int(tokens[0].strip('.')) in obj.values():
+									added = True
+									break
+							if added == False:
+								db_objects.append({"Question": lines[i][3:].lstrip(" "), 
 													"Question Number": int(tokens[0].strip('.'))})
-								i += 1
-							else:
-								i += 1
-					else:
-						i += 1
-				
+								print("APPENDING: " + lines[i][3:])
+						else:
+							continue
+
 				# Need to iterate twice bc sometimes it reads out of order
 				i = 0
 				while i < len(lines):
 					#print(lines[i])
 					if "College of" in lines[i]:
 						tokens = lines[i].split(" ")
-
+						debug = "College of"
 						if tokens[2] == "Business":
 							dbdict["College Code"] = "BUS"
 
@@ -233,11 +250,11 @@ def parse_files(directory):
 					elif "Deviation" in lines[i]:
 						i += 1
 						# x is to keep track of which db object we are adding data to
-						x = 0
-						while x < len(db_objects):
+						x = len(db_objects)-1
+						while x > -1:
 							if len(lines[i]) > 2:
 								tokens = lines[i].split(" ")
-
+								debug = "Deviation"
 								# Welcome to Bug City
 								# Weird OCR bug here, its seeing something that I dont on random files
 								for n in range(0, len(tokens) - 1):
@@ -251,35 +268,50 @@ def parse_files(directory):
 
 								try:
 									if "INDIVIDUAL" in lines[i]:
+										debug = "INDIVIDUAL"
 										db_objects[x]["Mean"] = float(tokens[1])
-										db_objects[x]["Median"] = int(tokens[2])
+
+										# Sometimes theres no median for no apparent reason :)
+										try:
+											db_objects[x]["Median"] = int(tokens[2])
+										except ValueError:
+											db_objects[x]["Median"] = 0
+
 										db_objects[x]["Standard Deviation"] = float(tokens[3])
 										db_objects[x]["Percent Rank - Department"] = float(tokens[-2])
 										db_objects[x]["Percent Rank - College"] = float(tokens[-1])
 									elif "DEPARTMENT" in lines[i]:
+										debug = "DEPARTMENT"
 										db_objects[x]["Department Mean"] = float(tokens[1])
 										db_objects[x]["Department Median"] = int(tokens[2])
 										db_objects[x]["Department Standard Deviation"] = float(tokens[3])
 									elif "SIMILAR" in lines[i]:
+										debug = "SIMILAR"
 										db_objects[x]["Similar College Mean"] = float(tokens[1])
 										db_objects[x]["Similar College Median"] = int(tokens[2])
 									elif "COLLEGE" in lines[i]:
+										debug = "COLLEGE"
 										db_objects[x]["College Mean"] = float(tokens[1])
 										db_objects[x]["College Median"] = int(tokens[2])
 										x += 1
 								except ValueError:
+									print("==========================================================================================")
 									print("Bad Data! Going to need manual input for this document...")
 									print(tokens)
+									print(debug)
+									print("==========================================================================================")
 							i += 1
 
 					elif "Total Enrollment" in lines[i]:
 						tokens = lines[i].split(" ")
+						debug = "Total Enrollment"
 						for n in range(0, len(tokens)):
 							if 'Enrollment' in tokens[n]:
 								dbdict["Instructor Enrollment"] = int(tokens[n+1])
 
 					elif "Course:" in lines[i]:
 						tokens = lines[i].split(" ")
+						debug = "Course:"
 						dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
 						dbdict["Subject Code"] = tokens[1]
 						# Some Subject Codes are separated by spaces
@@ -292,14 +324,16 @@ def parse_files(directory):
 							dbdict["Section Number"] = int(tokens[3][-3:])
 						
 
-					elif "Instructors:" in lines[i] or "instructors" in lines[i]:
+					elif "Instructors:" in lines[i] or "instructors:" in lines[i]:
+						debug = "Instructors:"
 						tokens = lines[i].split(" ")
 						dbdict["Instructor First Name"] = tokens[1].title()
 						dbdict["Instructor Last Name"] = tokens[2].title()
 						instructor2["Instructor First Name"] = tokens[4].title()
 						instructor2["Instructor Last Name"] = tokens[5].title()
 
-					elif "Instructor:" in lines[i] or "instructor" in lines[i]:
+					elif "Instructor:" in lines[i] or "instructor:" in lines[i]:
+						debug = "Instructor:"
 						tokens = lines[i].split(" ")
 						dbdict["Instructor First Name"] = tokens[1].title()
 						dbdict["Instructor Last Name"] = tokens[2].title()
@@ -307,13 +341,22 @@ def parse_files(directory):
 							dbdict["Instructor Last Name"] += tokens[3].title()
 					
 					elif "Section Title" in lines[i]:
+						debug = "Section Title"
 						dbdict["Section Title"] = lines[i][15:]
 
 					i += 1
 			except ValueError:
-				print("Bad Data! Going to need manual input for this document...")
+				print("============================================================================================================")
+				print("Bad Data Here!! May have to manually input!!")
 				print(tokens)
-				continue
+				print("============================================================================================================")
+
+			except IndexError:
+				print("============================================================================================================")
+				print("Bad Data Here!! May have to manually input!!")
+				print(tokens)
+				print("============================================================================================================")
+
 
 			# find if we are testing or not, use appropriate collection
 			if bool(sys.argv[2]) == True:
@@ -323,33 +366,16 @@ def parse_files(directory):
 
 			collection = db[collection_name]
 
-			for i in range(0, len(db_objects)):
-				db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
-				db_objects[i]["College Code"] = dbdict["College Code"]
-				db_objects[i]["Subject Code"] = dbdict["Subject Code"]
-				db_objects[i]["Course Number"] = dbdict["Course Number"]
-				db_objects[i]["Section Number"] = dbdict["Section Number"]
-				db_objects[i]["Section Title"] = dbdict["Section Title"]
-				db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
-				db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
-				find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-												'Instructor Last Name': dbdict["Instructor Last Name"]})
-				# If this professor already has an ID
-				if find_id != None:
-					db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-				# Else just use python's hash function to make one for them, should be sufficiently unique
-				else:
-					db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-				collection.insert_one(db_objects[i])
-
-			# If there is an Instructor 2, just change the name and ID
-			if instructor2:
+			try:
 				for i in range(0, len(db_objects)):
-					# Instructor ID
-					db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
-					db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
-					# Needed so that we arent trying to add a duplicate object_id
-					db_objects[i].pop('_id', None)
+					db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
+					db_objects[i]["College Code"] = dbdict["College Code"]
+					db_objects[i]["Subject Code"] = dbdict["Subject Code"]
+					db_objects[i]["Course Number"] = dbdict["Course Number"]
+					db_objects[i]["Section Number"] = dbdict["Section Number"]
+					db_objects[i]["Section Title"] = dbdict["Section Title"]
+					db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
+					db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
 					find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
 													'Instructor Last Name': dbdict["Instructor Last Name"]})
 					# If this professor already has an ID
@@ -358,26 +384,56 @@ def parse_files(directory):
 					# Else just use python's hash function to make one for them, should be sufficiently unique
 					else:
 						db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
+					print("Adding " + dbdict["Instructor First Name"] + " " + dbdict["Instructor Last Name"] + " to " + collection_name)
 					collection.insert_one(db_objects[i])
+
+				# If there is an Instructor 2, just change the name and ID
+				if instructor2:
+					for i in range(0, len(db_objects)):
+						# Instructor ID
+						db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
+						db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
+						# Needed so that we arent trying to add a duplicate object_id
+						db_objects[i].pop('_id', None)
+						find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
+														'Instructor Last Name': dbdict["Instructor Last Name"]})
+						# If this professor already has an ID
+						if find_id != None:
+							db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
+						# Else just use python's hash function to make one for them, should be sufficiently unique
+						else:
+							db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
+						print("Adding " + dbdict["Instructor First Name"] + " " + dbdict["Instructor Last Name"] + " to " + collection_name)
+						collection.insert_one(db_objects[i])
+
+			except KeyError:
+				print("============================================================================================================")
+				print("Bad Parse!! OCR likely read in a strange manner...")
+				print(tokens)
+				print("============================================================================================================")
 
 if __name__ == '__main__':
 
 	if len(sys.argv) < 3 or len(sys.argv) > 3:
 		print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
 
-	if bool(sys.argv[2]) == True:
+	if sys.argv[2] == "True":
 		pdf_splitter("test/bus201410.pdf", "bus", "201410")
 		directory = os.fsencode('test/split/')
 		parse_files(directory)
 		exit(0)
 
 	else:
+		print("Crawling...")
 
 		url = "http://www.ou.edu/provost/course-evaluation-data"
 
-		names_urls = web_crawl(url)
+		names = web_crawl(url)
 
-		for name, url in names_urls:
+		print(names)
+
+		for name in names:
+			print("Splitting: " + name)
 			pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
 
 		directory = os.fsencode('pdfs/split/')

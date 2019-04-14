@@ -22,9 +22,8 @@ endif
 	mkdir test/jpgs
 
 run: clean init
-	clean
-	python3 review_ocr.py reviews-db False
-	clean
+	python3 review_ocr.py ocr_db False
+	
 
 clean:
 ifeq (,$(wildcard ./pdfs/))
