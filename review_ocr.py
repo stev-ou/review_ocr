@@ -164,7 +164,6 @@ def bug_city(l):
 				new.append(n)
 			except ValueError:
 				new.append(l[i])
-	print(new)
 
 	return new
 
@@ -196,59 +195,70 @@ def parse_files(directory):
 			dept = []
 			college = []
 			similar = []
+			n, d, c, s = 0, 0, 0, 0
 			# Store only the necessary line information, since sometimes lines are mixed together
 			for i in range(0, len(lines)):
 				if "INDIVIDUAL" in lines[i]:
+					ind.append([])
 					tokens = lines[i].split(" ")
 					tokens = bug_city(tokens)
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "INDIVIDUAL":
-							ind.append(tokens[t])
+							ind[n].append(tokens[t])
 							t += 1
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-								ind.append(tokens[t])
+								ind[n].append(tokens[t])
 								t += 1
+							n += 1
 							break
 
 				elif "DEPARTMENT" in lines[i]:
+					dept.append([])
 					tokens = lines[i].split(" ")
 					tokens = bug_city(tokens)
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "DEPARTMENT":
-							dept.append(tokens[t])
+							dept[d].append(tokens[t])
 							t += 1
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-								dept.append(tokens[t])
+								dept[d].append(tokens[t])
 								t += 1
+							d += 1
 							break
 
 				elif "SIMILAR" in lines[i]:
+					similar.append([])
 					tokens = lines[i].split(" ")
 					tokens = bug_city(tokens)
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "SIMILAR_COL":
-							similar.append(tokens[t])
+							similar[s].append(tokens[t])
 							t += 1
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-								similar.append(tokens[t])
+								similar[s].append(tokens[t])
 								t += 1
+							s += 1
 							break
 
 				elif "COLLEGE" in lines[i]:
+					college.append([])
 					tokens = lines[i].split(" ")
 					tokens = bug_city(tokens)
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "COLLEGE":
-							college.append(tokens[t])
+							college[c].append(tokens[t])
 							t += 1
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-								college.append(tokens[t])
+								college[c].append(tokens[t])
 								t += 1
+							c += 1
 							break
+
+			print(ind)
 							
 
 			try:
