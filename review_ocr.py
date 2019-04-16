@@ -25,7 +25,7 @@ debug = ""
 CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
 BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——'] # See line 217...
-BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35}
+BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5}
 FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
 			"11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. ", "20. ",
 			"21. ", "22. ", "23. ", "24. ", "25. ", "26. ", "27. ", "28. ", "29. ", "30. ",
@@ -148,6 +148,25 @@ def web_crawl(url):
 	return names
 		
 
+def bug_city(l):
+	for i in range(0, len(l)):
+		if l[i] in BUG_CITY2.keys():
+			l[i] = BUG_CITY2[l[i]]
+
+	new = []
+	for i in range(0, len(l)):
+		try:
+			f = float(l[i])
+			new.append(f)
+		except ValueError:
+			try:
+				n = int(l[i])
+				new.append(n)
+			except ValueError:
+				new.append(l[i])
+	print(new)
+
+	return new
 
 
 def parse_files(directory):
@@ -172,6 +191,66 @@ def parse_files(directory):
 			db_objects = []
 
 			lines = text.splitlines()
+			
+			ind = []
+			dept = []
+			college = []
+			similar = []
+			# Store only the necessary line information, since sometimes lines are mixed together
+			for i in range(0, len(lines)):
+				if "INDIVIDUAL" in lines[i]:
+					tokens = lines[i].split(" ")
+					tokens = bug_city(tokens)
+					t = 0
+					for t in range(0, len(tokens)):
+						if tokens[t] == "INDIVIDUAL":
+							ind.append(tokens[t])
+							t += 1
+							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+								ind.append(tokens[t])
+								t += 1
+							break
+
+				elif "DEPARTMENT" in lines[i]:
+					tokens = lines[i].split(" ")
+					tokens = bug_city(tokens)
+					t = 0
+					for t in range(0, len(tokens)):
+						if tokens[t] == "DEPARTMENT":
+							dept.append(tokens[t])
+							t += 1
+							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+								dept.append(tokens[t])
+								t += 1
+							break
+
+				elif "SIMILAR" in lines[i]:
+					tokens = lines[i].split(" ")
+					tokens = bug_city(tokens)
+					t = 0
+					for t in range(0, len(tokens)):
+						if tokens[t] == "SIMILAR_COL":
+							similar.append(tokens[t])
+							t += 1
+							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+								similar.append(tokens[t])
+								t += 1
+							break
+
+				elif "COLLEGE" in lines[i]:
+					tokens = lines[i].split(" ")
+					tokens = bug_city(tokens)
+					t = 0
+					for t in range(0, len(tokens)):
+						if tokens[t] == "COLLEGE":
+							college.append(tokens[t])
+							t += 1
+							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+								college.append(tokens[t])
+								t += 1
+							break
+							
+
 			try:
 				for i in range(len(lines)-1, -1, -1):
 					print(lines[i])
