@@ -149,6 +149,12 @@ def web_crawl(url):
 		
 
 def bug_city(l):
+	# Welcome to Bug City
+	# Remove Citizens of Bug City1
+	for i in range(0, len(l)-1):
+		if l[i] in BUG_CITY:
+			l.pop(i)
+
 	for i in range(0, len(l)):
 		if l[i] in BUG_CITY2.keys():
 			l[i] = BUG_CITY2[l[i]]
@@ -214,6 +220,7 @@ def parse_files(directory):
 							break
 
 				elif "DEPARTMENT" in lines[i]:
+					print(lines[i])
 					dept.append([])
 					tokens = lines[i].split(" ")
 					tokens = bug_city(tokens)
@@ -256,14 +263,10 @@ def parse_files(directory):
 								college[c].append(tokens[t])
 								t += 1
 							c += 1
-							break
-
-			print(ind)
-							
+							break						
 
 			try:
 				for i in range(len(lines)-1, -1, -1):
-					print(lines[i])
 					tokens = lines[i].split(" ")
 					debug = "Question"
 					for q in FIND_Q:
@@ -283,6 +286,49 @@ def parse_files(directory):
 								print("APPENDING: " + lines[i][3:])
 						else:
 							continue
+
+				# x is to keep track of which db object we are adding data to
+				x = len(db_objects)-1
+				y = 0
+				while x > -1 and y < len(ind):
+					try:
+						debug = "INDIVIDUAL"
+						db_objects[x]["Mean"] = float(ind[y][1])
+
+						# Sometimes theres no median for no apparent reason :)
+						try:
+							db_objects[x]["Median"] = int(ind[y][2])
+						except ValueError:
+							db_objects[x]["Median"] = -1
+
+						db_objects[x]["Standard Deviation"] = float(ind[y][3])
+						db_objects[x]["Percent Rank - Department"] = float(ind[y][-2])
+						db_objects[x]["Percent Rank - College"] = float(ind[y][-1])
+
+						debug = "DEPARTMENT"
+						print(dept)
+						db_objects[x]["Department Mean"] = float(dept[y][1])
+						db_objects[x]["Department Median"] = int(dept[y][2])
+						db_objects[x]["Department Standard Deviation"] = float(dept[y][3])
+
+						if similar:
+							debug = "SIMILAR"
+							db_objects[x]["Similar College Mean"] = float(similar[y][1])
+							db_objects[x]["Similar College Median"] = int(similar[y][2])
+						
+						debug = "COLLEGE"
+						db_objects[x]["College Mean"] = float(college[y][1])
+						db_objects[x]["College Median"] = int(college[y][2])
+						x -= 1
+						y += 1
+
+					except ValueError:
+						print("==========================================================================================")
+						print("Bad Data! Going to need manual input for this document...")
+						print(tokens)
+						print(debug)
+						print("==========================================================================================")
+
 
 				# Need to iterate twice bc sometimes it reads out of order
 				i = 0
@@ -336,60 +382,6 @@ def parse_files(directory):
 
 						#ROTC
 
-					elif "Deviation" in lines[i]:
-						i += 1
-						# x is to keep track of which db object we are adding data to
-						x = len(db_objects)-1
-						while x > -1:
-							if len(lines[i]) > 2:
-								tokens = lines[i].split(" ")
-								debug = "Deviation"
-								# Welcome to Bug City
-								# Weird OCR bug here, its seeing something that I dont on random files
-								for n in range(0, len(tokens) - 1):
-									if tokens[n] in BUG_CITY:
-										tokens.pop(n)
-									elif tokens[n] in BUG_CITY2.keys():
-										tokens[n] = BUG_CITY2[tokens[n]]
-									# Dude I dont even know...
-									if tokens[n] == 'FE':
-										tokens[n] = 5
-
-								try:
-									if "INDIVIDUAL" in lines[i]:
-										debug = "INDIVIDUAL"
-										db_objects[x]["Mean"] = float(tokens[1])
-
-										# Sometimes theres no median for no apparent reason :)
-										try:
-											db_objects[x]["Median"] = int(tokens[2])
-										except ValueError:
-											db_objects[x]["Median"] = 0
-
-										db_objects[x]["Standard Deviation"] = float(tokens[3])
-										db_objects[x]["Percent Rank - Department"] = float(tokens[-2])
-										db_objects[x]["Percent Rank - College"] = float(tokens[-1])
-									elif "DEPARTMENT" in lines[i]:
-										debug = "DEPARTMENT"
-										db_objects[x]["Department Mean"] = float(tokens[1])
-										db_objects[x]["Department Median"] = int(tokens[2])
-										db_objects[x]["Department Standard Deviation"] = float(tokens[3])
-									elif "SIMILAR" in lines[i]:
-										debug = "SIMILAR"
-										db_objects[x]["Similar College Mean"] = float(tokens[1])
-										db_objects[x]["Similar College Median"] = int(tokens[2])
-									elif "COLLEGE" in lines[i]:
-										debug = "COLLEGE"
-										db_objects[x]["College Mean"] = float(tokens[1])
-										db_objects[x]["College Median"] = int(tokens[2])
-										x += 1
-								except ValueError:
-									print("==========================================================================================")
-									print("Bad Data! Going to need manual input for this document...")
-									print(tokens)
-									print(debug)
-									print("==========================================================================================")
-							i += 1
 
 					elif "Total Enrollment" in lines[i]:
 						tokens = lines[i].split(" ")
@@ -403,6 +395,7 @@ def parse_files(directory):
 						debug = "Course:"
 						dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
 						dbdict["Subject Code"] = tokens[1]
+
 						# Some Subject Codes are separated by spaces
 						try:
 							dbdict["Course Number"] = int(tokens[2][:4])
@@ -448,7 +441,7 @@ def parse_files(directory):
 
 
 			# find if we are testing or not, use appropriate collection
-			if bool(sys.argv[2]) == True:
+			if sys.argv[2] == "True":
 				collection_name = "test_joe"
 			else:
 				collection_name = dbdict["College Code"].upper()
@@ -499,6 +492,7 @@ def parse_files(directory):
 				print("============================================================================================================")
 				print("Bad Parse!! OCR likely read in a strange manner...")
 				print(tokens)
+				print(debug)
 				print("============================================================================================================")
 
 if __name__ == '__main__':
