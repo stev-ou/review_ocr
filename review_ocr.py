@@ -204,6 +204,7 @@ def parse_files(directory):
 			n, d, c, s = 0, 0, 0, 0
 			# Store only the necessary line information, since sometimes lines are mixed together
 			for i in range(0, len(lines)):
+				print(lines[i])
 				if "INDIVIDUAL" in lines[i]:
 					ind.append([])
 					tokens = lines[i].split(" ")
@@ -220,7 +221,6 @@ def parse_files(directory):
 							break
 
 				elif "DEPARTMENT" in lines[i]:
-					print(lines[i])
 					dept.append([])
 					tokens = lines[i].split(" ")
 					tokens = bug_city(tokens)
@@ -306,7 +306,6 @@ def parse_files(directory):
 						db_objects[x]["Percent Rank - College"] = float(ind[y][-1])
 
 						debug = "DEPARTMENT"
-						print(dept)
 						db_objects[x]["Department Mean"] = float(dept[y][1])
 						db_objects[x]["Department Median"] = int(dept[y][2])
 						db_objects[x]["Department Standard Deviation"] = float(dept[y][3])
