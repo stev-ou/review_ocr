@@ -14,6 +14,7 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
 from pymongo import MongoClient
+from tqdm import tqdm
 
 db_name = sys.argv[1]
 
@@ -25,13 +26,14 @@ debug = ""
 CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
 BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——'] # See line 217...
-BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5}
+BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5,
+			 "iD": 5, "iD)": 5, "S": 5}
 FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
 			"11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. ", "20. ",
 			"21. ", "22. ", "23. ", "24. ", "25. ", "26. ", "27. ", "28. ", "29. ", "30. ",
 			"31. ", "32. ", "33. ", "34. ", "35. ", "36. ", "37. ", "38. ", "39. ", "40. ",
 		]
-
+baddata = []
 
 def pdf_splitter(path, col, term):
 	# This will take a pdf and split it into individual pages, saving them to directory pdfs/split
@@ -148,7 +150,7 @@ def web_crawl(url):
 	return names
 		
 
-def bug_city(l):
+def bug_city(l, key):
 	# Welcome to Bug City
 	# Remove Citizens of Bug City1
 	for i in range(0, len(l)-1):
@@ -160,7 +162,16 @@ def bug_city(l):
 			l[i] = BUG_CITY2[l[i]]
 
 	new = []
-	for i in range(0, len(l)):
+	k = 0
+	while k < len(l):
+		if l[k] == key:
+			new.append(l[k])
+			k += 1
+			break
+		else:
+			k += 1
+
+	for i in range(k, len(l)):
 		try:
 			f = float(l[i])
 			new.append(f)
@@ -169,19 +180,20 @@ def bug_city(l):
 				n = int(l[i])
 				new.append(n)
 			except ValueError:
-				new.append(l[i])
+				break
 
 	return new
 
 
 def parse_files(directory):
-	for file in os.listdir(directory):
+	for file in tqdm(os.listdir(directory)):
 		f = os.fsdecode(file)
 		#f = '136bus201410.pdf'
 		if f.endswith(".pdf"):
 			print("Running: " + f)
 			dbdict =   {}
-			instructor2 = {} # In case there is a second instructor
+			instructor2 = {} # In case there is a second/third instructor
+			instructor3 = {}
 
 			# Can't read from pdfs, so we need to convert each one to a jpg
 			with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
@@ -204,11 +216,10 @@ def parse_files(directory):
 			n, d, c, s = 0, 0, 0, 0
 			# Store only the necessary line information, since sometimes lines are mixed together
 			for i in range(0, len(lines)):
-				print(lines[i])
 				if "INDIVIDUAL" in lines[i]:
 					ind.append([])
 					tokens = lines[i].split(" ")
-					tokens = bug_city(tokens)
+					tokens = bug_city(tokens, "INDIVIDUAL")
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "INDIVIDUAL":
@@ -217,13 +228,17 @@ def parse_files(directory):
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
 								ind[n].append(tokens[t])
 								t += 1
-							n += 1
-							break
+							if len(ind[n]) < 4:
+								ind.pop(n)
+								break
+							else:
+								n += 1
+								break
 
 				elif "DEPARTMENT" in lines[i]:
 					dept.append([])
 					tokens = lines[i].split(" ")
-					tokens = bug_city(tokens)
+					tokens = bug_city(tokens, "DEPARTMENT")
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "DEPARTMENT":
@@ -232,13 +247,17 @@ def parse_files(directory):
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
 								dept[d].append(tokens[t])
 								t += 1
-							d += 1
-							break
+							if len(dept[d]) < 4:
+								dept.pop(d)
+								break
+							else:
+								d += 1
+								break
 
 				elif "SIMILAR" in lines[i]:
 					similar.append([])
 					tokens = lines[i].split(" ")
-					tokens = bug_city(tokens)
+					tokens = bug_city(tokens, "SIMILAR")
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "SIMILAR_COL":
@@ -247,13 +266,17 @@ def parse_files(directory):
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
 								similar[s].append(tokens[t])
 								t += 1
-							s += 1
-							break
+							if len(similar[s]) < 4:
+								similar.pop(s)
+								break
+							else:
+								s += 1
+								break
 
 				elif "COLLEGE" in lines[i]:
 					college.append([])
 					tokens = lines[i].split(" ")
-					tokens = bug_city(tokens)
+					tokens = bug_city(tokens, "COLLEGE")
 					t = 0
 					for t in range(0, len(tokens)):
 						if tokens[t] == "COLLEGE":
@@ -262,8 +285,12 @@ def parse_files(directory):
 							while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
 								college[c].append(tokens[t])
 								t += 1
-							c += 1
-							break						
+							if len(college[c]) < 4:
+								college.pop(c)
+								break
+							else:
+								c += 1
+								break						
 
 			try:
 				for i in range(len(lines)-1, -1, -1):
@@ -271,9 +298,11 @@ def parse_files(directory):
 					debug = "Question"
 					for q in FIND_Q:
 						if q in lines[i]:	
+							"""
 							# This is to handle wrapping text
-							if len(lines[i+1]) >= 3:
+							if i+1 < len(lines) and len(lines[i+1]) >= 2:
 								lines[i] += " " + lines[i+1]
+							"""
 							# Make sure this question has not already been added, iterate through whole list
 							added = False
 							for obj in db_objects:
@@ -281,9 +310,15 @@ def parse_files(directory):
 									added = True
 									break
 							if added == False:
-								db_objects.append({"Question": lines[i][3:].lstrip(" "), 
-													"Question Number": int(tokens[0].strip('.'))})
-								print("APPENDING: " + lines[i][3:])
+								#db_objects.append({"Question": lines[i][3:].lstrip(" "), "Question Number": int(tokens[0].strip('.'))})
+								try:
+									db_objects.append({"Question Number": int(tokens[0].strip('.'))})
+								except ValueError:
+									print("============================================================================================================")
+									print("Bad Parse!! OCR likely read in a strange manner...")
+									collection_name = "bad_data"
+									baddata.append(f)
+									print("============================================================================================================")
 						else:
 							continue
 
@@ -310,7 +345,7 @@ def parse_files(directory):
 						db_objects[x]["Department Median"] = int(dept[y][2])
 						db_objects[x]["Department Standard Deviation"] = float(dept[y][3])
 
-						if similar:
+						if y < len(similar) and similar[y]:
 							debug = "SIMILAR"
 							db_objects[x]["Similar College Mean"] = float(similar[y][1])
 							db_objects[x]["Similar College Median"] = int(similar[y][2])
@@ -320,19 +355,33 @@ def parse_files(directory):
 						db_objects[x]["College Median"] = int(college[y][2])
 						x -= 1
 						y += 1
-
+					
 					except ValueError:
 						print("==========================================================================================")
 						print("Bad Data! Going to need manual input for this document...")
-						print(tokens)
-						print(debug)
+						err = [ind, dept, college, similar]
+						print(err)
+						print(debug + str(y))
+						collection_name = "bad_data"
+						baddata.append(f)
 						print("==========================================================================================")
-
+						break
+					except IndexError:
+						print("==========================================================================================")
+						print("Bad Data! Going to need manual input for this document...")
+						err = [ind, dept, college, similar]
+						print(err)
+						print(debug + str(y))
+						collection_name = "bad_data"
+						baddata.append(f)
+						print("==========================================================================================")
+						break
+					
 
 				# Need to iterate twice bc sometimes it reads out of order
 				i = 0
+				#try:
 				while i < len(lines):
-					#print(lines[i])
 					if "College of" in lines[i]:
 						tokens = lines[i].split(" ")
 						debug = "College of"
@@ -381,7 +430,6 @@ def parse_files(directory):
 
 						#ROTC
 
-
 					elif "Total Enrollment" in lines[i]:
 						tokens = lines[i].split(" ")
 						debug = "Total Enrollment"
@@ -389,7 +437,7 @@ def parse_files(directory):
 							if 'Enrollment' in tokens[n]:
 								dbdict["Instructor Enrollment"] = int(tokens[n+1])
 
-					elif "Course:" in lines[i]:
+					if "Course:" in lines[i]:
 						tokens = lines[i].split(" ")
 						debug = "Course:"
 						dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
@@ -406,14 +454,20 @@ def parse_files(directory):
 						
 
 					elif "Instructors:" in lines[i] or "instructors:" in lines[i]:
+						print(lines[i])
 						debug = "Instructors:"
 						tokens = lines[i].split(" ")
 						dbdict["Instructor First Name"] = tokens[1].title()
 						dbdict["Instructor Last Name"] = tokens[2].title()
 						instructor2["Instructor First Name"] = tokens[4].title()
 						instructor2["Instructor Last Name"] = tokens[5].title()
+						if len(tokens) > 6:
+							if tokens[6] == "/":
+								instructor3["Instructor First Name"] = tokens[7].title()
+								instructor3["Instructor Last Name"] = tokens[8].title()
 
 					elif "Instructor:" in lines[i] or "instructor:" in lines[i]:
+						print(lines[i])
 						debug = "Instructor:"
 						tokens = lines[i].split(" ")
 						dbdict["Instructor First Name"] = tokens[1].title()
@@ -426,27 +480,41 @@ def parse_files(directory):
 						dbdict["Section Title"] = lines[i][15:]
 
 					i += 1
+			
+
+				# find if we are testing or not, use appropriate collection
+				if sys.argv[2] == "True":
+					collection_name = "test_joe"
+				else:
+					try:
+						collection_name = dbdict["College Code"].upper()
+						collection = db[collection_name]
+					except KeyError:
+						collection_name = "bad_data"
+						collection = db[collection_name]
+			
 			except ValueError:
 				print("============================================================================================================")
 				print("Bad Data Here!! May have to manually input!!")
 				print(tokens)
+				baddata.append(f)
 				print("============================================================================================================")
 
 			except IndexError:
 				print("============================================================================================================")
 				print("Bad Data Here!! May have to manually input!!")
 				print(tokens)
+				baddata.append(f)
 				print("============================================================================================================")
 
-
-			# find if we are testing or not, use appropriate collection
-			if sys.argv[2] == "True":
-				collection_name = "test_joe"
-			else:
-				collection_name = dbdict["College Code"].upper()
-
-			collection = db[collection_name]
-
+			except KeyError as e:
+				print("============================================================================================================")
+				print("Bad Data Here!! May have to manually input!!")
+				print(e)
+				print(tokens)
+				baddata.append(f)
+				print("============================================================================================================")
+			
 			try:
 				for i in range(0, len(db_objects)):
 					db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
@@ -484,15 +552,36 @@ def parse_files(directory):
 						# Else just use python's hash function to make one for them, should be sufficiently unique
 						else:
 							db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-						print("Adding " + dbdict["Instructor First Name"] + " " + dbdict["Instructor Last Name"] + " to " + collection_name)
+						print("Adding " + instructor2["Instructor First Name"] + " " + instructor2["Instructor Last Name"] + " to " + collection_name)
 						collection.insert_one(db_objects[i])
 
+				# If there is an Instructor 2, just change the name and ID
+				if instructor3:
+					for i in range(0, len(db_objects)):
+						# Instructor ID
+						db_objects[i]["Instructor First Name"] = instructor3["Instructor First Name"]
+						db_objects[i]["Instructor Last Name"] = instructor3["Instructor Last Name"]
+						# Needed so that we arent trying to add a duplicate object_id
+						db_objects[i].pop('_id', None)
+						find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
+														'Instructor Last Name': dbdict["Instructor Last Name"]})
+						# If this professor already has an ID
+						if find_id != None:
+							db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
+						# Else just use python's hash function to make one for them, should be sufficiently unique
+						else:
+							db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
+						print("Adding " + instructor3["Instructor First Name"] + " " + instructor3["Instructor Last Name"] + " to " + collection_name)
+						collection.insert_one(db_objects[i])
+			
 			except KeyError:
 				print("============================================================================================================")
 				print("Bad Parse!! OCR likely read in a strange manner...")
-				print(tokens)
+				print(db_objects[i])
 				print(debug)
+				baddata.append(f)
 				print("============================================================================================================")
+				
 
 if __name__ == '__main__':
 
@@ -512,7 +601,7 @@ if __name__ == '__main__':
 
 		names = web_crawl(url)
 
-		print(names)
+		#print(names)
 
 		for name in names:
 			print("Splitting: " + name)
@@ -520,4 +609,11 @@ if __name__ == '__main__':
 
 		directory = os.fsencode('pdfs/split/')
 		parse_files(directory)
+
+		with open("baddata.txt", "w") as f:
+			for i in range(0, len(baddata)):
+				f.write(baddata[i])
+
+		print(baddata)
+				
 		exit(0)
