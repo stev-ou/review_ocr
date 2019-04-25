@@ -25,7 +25,7 @@ SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
 # See line 217...
 BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——']
 BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5,
-             "iD": 5, "iD)": 5, "S": 5}
+             "iD": 5, "iD)": 5, "S": 5, "a": 5}
 FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
           "11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. ", "20. ",
           "21. ", "22. ", "23. ", "24. ", "25. ", "26. ", "27. ", "28. ", "29. ", "30. ",
@@ -189,7 +189,11 @@ def parse_files(file):
                      "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
     db = client[db_name]
     f = os.fsdecode(file)
-    #f = '136bus201410.pdf'
+
+    # This file SUCKS!!!!
+    if f == "349ints201710.pdf":
+        return
+
     if f.endswith(".pdf"):
         print("Running: " + f)
         dbdict = {}
@@ -316,22 +320,20 @@ def parse_files(file):
                                 db_objects.append(
                                     {"Question Number": int(tokens[0].strip('.'))})
                             except ValueError:
-                                print(
-                                    "============================================================================================================")
-                                print(
-                                    "Bad Parse!! OCR likely read in a strange manner...")
+                                print("============================================================================================================")
+                                print("Bad Parse!! OCR could not read Questions " + f)
                                 collection_name = "bad_data"
                                 baddata.append(f)
                                 with open("baddata.txt", "a+") as ff:
-                                    ff.write(f)
-                                print(
-                                    "============================================================================================================")
+                                    ff.write(f + "\n")
+                                print("============================================================================================================")
                     else:
                         continue
 
             # x is to keep track of which db object we are adding data to
             x = len(db_objects)-1
             y = 0
+            #IDSC BLOCK
             while x > -1 and y < len(ind):
                 try:
                     debug = "INDIVIDUAL"
@@ -368,39 +370,29 @@ def parse_files(file):
                     y += 1
 
                 except ValueError:
-                    print(
-                        "==========================================================================================")
-                    print("Bad Data! Going to need manual input for this document...")
+                    print("==========================================================================================")
+                    print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
                     err = [ind, dept, college, similar]
                     print(err)
                     print(debug + str(y))
                     collection_name = "bad_data"
                     baddata.append(f)
-
                     with open("baddata.txt", "a+") as ff:
-                        ff.write(f)
-
-
-                    print(
-                        "==========================================================================================")
+                        ff.write(f + "\n")
+                    print("==========================================================================================")
                     break
+
                 except IndexError:
-                    print(
-                        "==========================================================================================")
-                    print("Bad Data! Going to need manual input for this document...")
+                    print("==========================================================================================")
+                    print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
                     err = [ind, dept, college, similar]
                     print(err)
                     print(debug + str(y))
                     collection_name = "bad_data"
                     baddata.append(f)
-
-
                     with open("baddata.txt", "a+") as ff:
-                        ff.write(f)
-
-
-                    print(
-                        "==========================================================================================")
+                        ff.write(f + "\n")
+                    print("==========================================================================================")
                     break
 
             # Need to iterate twice bc sometimes it reads out of order
@@ -518,9 +510,10 @@ def parse_files(file):
 
         except ValueError:
             print("============================================================================================================")
-            print("Bad Data Here!! May have to manually input!!")
+            print("Bad Data Here!! May have to manually input!! " + f)
             print(tokens)
-            baddata.append(f)
+            print(debug)
+            baddata.append(f + "\n")
             with open("baddata.txt", "a+") as ff:
                 ff.write(f)
 
@@ -528,24 +521,24 @@ def parse_files(file):
 
         except IndexError:
             print("============================================================================================================")
-            print("Bad Data Here!! May have to manually input!!")
+            print("Bad Data Here!! May have to manually input!! " + f)
             print(tokens)
+            print(debug)
             baddata.append(f)
             with open("baddata.txt", "a+") as ff:
-                ff.write(f)
+                ff.write(f + "\n")
 
             print("============================================================================================================")
 
         except KeyError as e:
             print("============================================================================================================")
-            print("Bad Data Here!! May have to manually input!!")
+            print("Bad Data Here!! May have to manually input!! " + f)
             print(e)
             print(tokens)
+            print(debug)
             baddata.append(f)
             with open("baddata.txt", "a+") as ff:
-                ff.write(f)
-
-
+                ff.write(f + "\n")
             print("============================================================================================================")
 
         try:
@@ -615,12 +608,11 @@ def parse_files(file):
 
         except KeyError:
             print("============================================================================================================")
-            print("Bad Parse!! OCR likely read in a strange manner...")
+            print("Could Not Add to DB!! OCR likely read in a strange manner... See what field we are missing from " + f)
             print(db_objects[i])
-            print(debug)
             baddata.append(f)
             with open("baddata.txt", "a+") as ff:
-                ff.write(f)
+                ff.write(f + "\n")
             print("============================================================================================================")
 
 
@@ -657,7 +649,7 @@ if __name__ == '__main__':
         print("Running with {} processes".format(CPUS//2))
         #list(map(parse_files, files))
         #with Pool(processes=CPUS//2) as pool:
-        with Pool(processes=2) as pool:
+        with Pool(processes=4) as pool:
             r = list(tqdm(pool.imap(parse_files, files), total=len(files)))
 
         with open("baddata.txt", "a+") as f:
