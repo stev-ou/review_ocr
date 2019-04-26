@@ -615,6 +615,9 @@ def parse_files(file):
                 ff.write(f + "\n")
             print("============================================================================================================")
 
+    file_name = os.fsencode("pdfs/jpgs/" + f.rstrip(".pdf") + ".jpg")
+    os.remove(file_name)
+
 
 if __name__ == '__main__':
 
@@ -628,17 +631,17 @@ if __name__ == '__main__':
         exit(0)
 
     else:
-#         print("Crawling...")
-# 
-#         url = "http://www.ou.edu/provost/course-evaluation-data"
-# 
-#         names = web_crawl(url)
-# 
-#         # print(names)
-# 
-#         for name in names:
-#             print("Splitting: " + name)
-#             pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+         print("Crawling...")
+ 
+         url = "http://www.ou.edu/provost/course-evaluation-data"
+ 
+         names = web_crawl(url)
+ 
+         # print(names)
+ 
+         for name in names:
+             print("Splitting: " + name)
+             pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
 
         directory = os.fsencode('pdfs/split/')
         # parse_files(directory)
@@ -649,7 +652,7 @@ if __name__ == '__main__':
         print("Running with {} processes".format(CPUS//2))
         #list(map(parse_files, files))
         #with Pool(processes=CPUS//2) as pool:
-        with Pool(processes=4) as pool:
+        with Pool(processes=3) as pool:
             r = list(tqdm(pool.imap(parse_files, files), total=len(files)))
 
         with open("baddata.txt", "a+") as f:
