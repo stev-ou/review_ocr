@@ -3,6 +3,7 @@ import sys
 import urllib.request
 import urllib.error
 from multiprocessing import Pool
+import multiprocessing
 
 try:
     from PIL import Image
@@ -14,8 +15,11 @@ import pprint
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
+import pymongo
 from tqdm import tqdm
+import time
+from dns.exception import DNSException
 
 db_name = sys.argv[1]
 debug = ""
@@ -185,439 +189,492 @@ def bug_city(l, key):
 
 
 def parse_files(file):
-    client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
-                     "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
-    db = client[db_name]
-    f = os.fsdecode(file)
+    try:
+        """
+        client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
+                         "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
+        db = client[db_name]
+        """
+        current = multiprocessing.current_process()
+        f = os.fsdecode(file)
 
-    # This file SUCKS!!!!
-    if f == "349ints201710.pdf":
-        return
+        # This file SUCKS!!!!
+        if f == "349ints201710.pdf":
+            return
 
-    if f.endswith(".pdf"):
-        print("Running: " + f)
-        dbdict = {}
-        instructor2 = {}  # In case there is a second/third instructor
-        instructor3 = {}
+        if f.endswith(".pdf"):
+            print("Running: " + f)
+            dbdict = {}
+            instructor2 = {}  # In case there is a second/third instructor
+            instructor3 = {}
 
-        # Can't read from pdfs, so we need to convert each one to a jpg
-        with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
-            img.compression_quality = 99
-            img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
+            # Can't read from pdfs, so we need to convert each one to a jpg
+            with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
+                img.compression_quality = 99
+                img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
 
-        # Now that we have a jpg, we can read it into text -  just a massive wall of text
-        img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
-        text = pytesseract.image_to_string(img)
+            # Now that we have a jpg, we can read it into text -  just a massive wall of text
+            img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
+            text = pytesseract.image_to_string(img)
 
-        # list of the dbdictionaries that will be added to the DataBase
-        db_objects = []
+            # list of the dbdictionaries that will be added to the DataBase
+            db_objects = []
 
-        lines = text.splitlines()
+            lines = text.splitlines()
 
-        ind = []
-        dept = []
-        college = []
-        similar = []
-        n, d, c, s = 0, 0, 0, 0
-        # Store only the necessary line information, since sometimes lines are mixed together
-        for i in range(0, len(lines)):
-            if "INDIVIDUAL" in lines[i]:
-                ind.append([])
-                tokens = lines[i].split(" ")
-                tokens = bug_city(tokens, "INDIVIDUAL")
-                t = 0
-                for t in range(0, len(tokens)):
-                    if tokens[t] == "INDIVIDUAL":
-                        ind[n].append(tokens[t])
-                        t += 1
-                        while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+            ind = []
+            dept = []
+            college = []
+            similar = []
+            n, d, c, s = 0, 0, 0, 0
+
+            # Store only the necessary line information, since sometimes lines are mixed together
+            for i in range(0, len(lines)):
+                if "INDIVIDUAL" in lines[i]:
+                    ind.append([])
+                    tokens = lines[i].split(" ")
+                    tokens = bug_city(tokens, "INDIVIDUAL")
+                    t = 0
+                    for t in range(0, len(tokens)):
+                        if tokens[t] == "INDIVIDUAL":
                             ind[n].append(tokens[t])
                             t += 1
-                        if len(ind[n]) < 4:
-                            ind.pop(n)
-                            break
-                        else:
-                            n += 1
-                            break
+                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+                                ind[n].append(tokens[t])
+                                t += 1
+                            if len(ind[n]) < 4:
+                                ind.pop(n)
+                                break
+                            else:
+                                n += 1
+                                break
 
-            elif "DEPARTMENT" in lines[i]:
-                dept.append([])
-                tokens = lines[i].split(" ")
-                tokens = bug_city(tokens, "DEPARTMENT")
-                t = 0
-                for t in range(0, len(tokens)):
-                    if tokens[t] == "DEPARTMENT":
-                        dept[d].append(tokens[t])
-                        t += 1
-                        while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+                elif "DEPARTMENT" in lines[i]:
+                    dept.append([])
+                    tokens = lines[i].split(" ")
+                    tokens = bug_city(tokens, "DEPARTMENT")
+                    t = 0
+                    for t in range(0, len(tokens)):
+                        if tokens[t] == "DEPARTMENT":
                             dept[d].append(tokens[t])
                             t += 1
-                        if len(dept[d]) < 4:
-                            dept.pop(d)
-                            break
-                        else:
-                            d += 1
-                            break
+                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+                                dept[d].append(tokens[t])
+                                t += 1
+                            if len(dept[d]) < 4:
+                                dept.pop(d)
+                                break
+                            else:
+                                d += 1
+                                break
 
-            elif "SIMILAR" in lines[i]:
-                similar.append([])
-                tokens = lines[i].split(" ")
-                tokens = bug_city(tokens, "SIMILAR")
-                t = 0
-                for t in range(0, len(tokens)):
-                    if tokens[t] == "SIMILAR_COL":
-                        similar[s].append(tokens[t])
-                        t += 1
-                        while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+                elif "SIMILAR" in lines[i]:
+                    similar.append([])
+                    tokens = lines[i].split(" ")
+                    tokens = bug_city(tokens, "SIMILAR")
+                    t = 0
+                    for t in range(0, len(tokens)):
+                        if tokens[t] == "SIMILAR_COL":
                             similar[s].append(tokens[t])
                             t += 1
-                        if len(similar[s]) < 4:
-                            similar.pop(s)
-                            break
-                        else:
-                            s += 1
-                            break
+                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+                                similar[s].append(tokens[t])
+                                t += 1
+                            if len(similar[s]) < 4:
+                                similar.pop(s)
+                                break
+                            else:
+                                s += 1
+                                break
 
-            elif "COLLEGE" in lines[i]:
-                college.append([])
-                tokens = lines[i].split(" ")
-                tokens = bug_city(tokens, "COLLEGE")
-                t = 0
-                for t in range(0, len(tokens)):
-                    if tokens[t] == "COLLEGE":
-                        college[c].append(tokens[t])
-                        t += 1
-                        while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+                elif "COLLEGE" in lines[i]:
+                    college.append([])
+                    tokens = lines[i].split(" ")
+                    tokens = bug_city(tokens, "COLLEGE")
+                    t = 0
+                    for t in range(0, len(tokens)):
+                        if tokens[t] == "COLLEGE":
                             college[c].append(tokens[t])
                             t += 1
-                        if len(college[c]) < 4:
-                            college.pop(c)
-                            break
-                        else:
-                            c += 1
-                            break
-
-        try:
-            for i in range(len(lines)-1, -1, -1):
-                tokens = lines[i].split(" ")
-                debug = "Question"
-                for q in FIND_Q:
-                    if q in lines[i]:
-                        """
-                        # This is to handle wrapping text
-                        if i+1 < len(lines) and len(lines[i+1]) >= 2:
-                                lines[i] += " " + lines[i+1]
-                        """
-                        # Make sure this question has not already been added, iterate through whole list
-                        added = False
-                        for obj in db_objects:
-                            if int(tokens[0].strip('.')) in obj.values():
-                                added = True
+                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+                                college[c].append(tokens[t])
+                                t += 1
+                            if len(college[c]) < 4:
+                                college.pop(c)
                                 break
-                        if added == False:
-                            #db_objects.append({"Question": lines[i][3:].lstrip(" "), "Question Number": int(tokens[0].strip('.'))})
-                            try:
-                                db_objects.append(
-                                    {"Question Number": int(tokens[0].strip('.'))})
-                            except ValueError:
-                                print("============================================================================================================")
-                                print("Bad Parse!! OCR could not read Questions " + f)
-                                collection_name = "bad_data"
-                                baddata.append(f)
-                                with open("baddata.txt", "a+") as ff:
-                                    ff.write(f + "\n")
-                                print("============================================================================================================")
-                    else:
-                        continue
+                            else:
+                                c += 1
+                                break
 
-            # x is to keep track of which db object we are adding data to
-            x = len(db_objects)-1
-            y = 0
-            #IDSC BLOCK
-            while x > -1 and y < len(ind):
-                try:
-                    debug = "INDIVIDUAL"
-                    db_objects[x]["Mean"] = float(ind[y][1])
+            try:
+                for i in range(len(lines)-1, -1, -1):
+                    tokens = lines[i].split(" ")
+                    debug = "Question"
+                    for q in FIND_Q:
+                        if q in lines[i]:
+                            """
+                            # This is to handle wrapping text
+                            if i+1 < len(lines) and len(lines[i+1]) >= 2:
+                                    lines[i] += " " + lines[i+1]
+                            """
+                            # Make sure this question has not already been added, iterate through whole list
+                            added = False
+                            for obj in db_objects:
+                                if int(tokens[0].strip('.')) in obj.values():
+                                    added = True
+                                    break
+                            if added == False:
+                                #db_objects.append({"Question": lines[i][3:].lstrip(" "), "Question Number": int(tokens[0].strip('.'))})
+                                try:
+                                    db_objects.append(
+                                        {"Question Number": int(tokens[0].strip('.'))})
+                                except ValueError:
+                                    print("============================================================================================================")
+                                    print("Bad Parse!! OCR could not read Questions " + f)
+                                    collection_name = "bad_data"
+                                    baddata.append(f)
+                                    with open("baddata.txt", "a+") as ff:
+                                        ff.write(f + "\n")
+                                    print("============================================================================================================")
+                        else:
+                            continue
 
-                    # Sometimes theres no median for no apparent reason :)
+                # x is to keep track of which db object we are adding data to
+                x = len(db_objects)-1
+                y = 0
+                #IDSC BLOCK
+                while x > -1 and y < len(ind):
                     try:
-                        db_objects[x]["Median"] = int(ind[y][2])
+                        debug = "INDIVIDUAL"
+                        db_objects[x]["Mean"] = float(ind[y][1])
+
+                        # Sometimes theres no median for no apparent reason :)
+                        try:
+                            db_objects[x]["Median"] = int(ind[y][2])
+                        except ValueError:
+                            db_objects[x]["Median"] = -1
+
+                        db_objects[x]["Standard Deviation"] = float(ind[y][3])
+                        db_objects[x]["Percent Rank - Department"] = float(
+                            ind[y][-2])
+                        db_objects[x]["Percent Rank - College"] = float(ind[y][-1])
+
+                        debug = "DEPARTMENT"
+                        db_objects[x]["Department Mean"] = float(dept[y][1])
+                        db_objects[x]["Department Median"] = int(dept[y][2])
+                        db_objects[x]["Department Standard Deviation"] = float(
+                            dept[y][3])
+
+                        if y < len(similar) and similar[y]:
+                            debug = "SIMILAR"
+                            db_objects[x]["Similar College Mean"] = float(
+                                similar[y][1])
+                            db_objects[x]["Similar College Median"] = int(
+                                similar[y][2])
+
+                        debug = "COLLEGE"
+                        db_objects[x]["College Mean"] = float(college[y][1])
+                        db_objects[x]["College Median"] = int(college[y][2])
+                        x -= 1
+                        y += 1
+
                     except ValueError:
-                        db_objects[x]["Median"] = -1
+                        print("==========================================================================================")
+                        print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
+                        err = [ind, dept, college, similar]
+                        print(err)
+                        print(debug + str(y))
+                        collection_name = "bad_data"
+                        baddata.append(f)
+                        with open("baddata.txt", "a+") as ff:
+                            ff.write(f + "\n")
+                        print("==========================================================================================")
+                        break
 
-                    db_objects[x]["Standard Deviation"] = float(ind[y][3])
-                    db_objects[x]["Percent Rank - Department"] = float(
-                        ind[y][-2])
-                    db_objects[x]["Percent Rank - College"] = float(ind[y][-1])
+                    except IndexError:
+                        print("==========================================================================================")
+                        print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
+                        err = [ind, dept, college, similar]
+                        print(err)
+                        print(debug + str(y))
+                        collection_name = "bad_data"
+                        baddata.append(f)
+                        with open("baddata.txt", "a+") as ff:
+                            ff.write(f + "\n")
+                        print("==========================================================================================")
+                        break
 
-                    debug = "DEPARTMENT"
-                    db_objects[x]["Department Mean"] = float(dept[y][1])
-                    db_objects[x]["Department Median"] = int(dept[y][2])
-                    db_objects[x]["Department Standard Deviation"] = float(
-                        dept[y][3])
+                # Need to iterate twice bc sometimes it reads out of order
+                i = 0
+                # try:
 
-                    if y < len(similar) and similar[y]:
-                        debug = "SIMILAR"
-                        db_objects[x]["Similar College Mean"] = float(
-                            similar[y][1])
-                        db_objects[x]["Similar College Median"] = int(
-                            similar[y][2])
+                while i < len(lines):
+                    if "College of" in lines[i]:
+                        tokens = lines[i].split(" ")
+                        debug = "College of"
+                        if tokens[2] == "Business":
+                            dbdict["College Code"] = "BUS"
 
-                    debug = "COLLEGE"
-                    db_objects[x]["College Mean"] = float(college[y][1])
-                    db_objects[x]["College Median"] = int(college[y][2])
-                    x -= 1
-                    y += 1
+                        elif tokens[2] == "Architecture":
+                            dbdict["College Code"] = "ARC"
 
-                except ValueError:
-                    print("==========================================================================================")
-                    print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
-                    err = [ind, dept, college, similar]
-                    print(err)
-                    print(debug + str(y))
-                    collection_name = "bad_data"
-                    baddata.append(f)
-                    with open("baddata.txt", "a+") as ff:
-                        ff.write(f + "\n")
-                    print("==========================================================================================")
-                    break
+                        elif tokens[2] == "Arts":
+                            dbdict["College Code"] = "ARTSN"
 
-                except IndexError:
-                    print("==========================================================================================")
-                    print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
-                    err = [ind, dept, college, similar]
-                    print(err)
-                    print(debug + str(y))
-                    collection_name = "bad_data"
-                    baddata.append(f)
-                    with open("baddata.txt", "a+") as ff:
-                        ff.write(f + "\n")
-                    print("==========================================================================================")
-                    break
+                        elif tokens[2] == "Atmospheric":
+                            dbdict["College Code"] = "GEO"
 
-            # Need to iterate twice bc sometimes it reads out of order
-            i = 0
-            # try:
-            while i < len(lines):
-                if "College of" in lines[i]:
-                    tokens = lines[i].split(" ")
-                    debug = "College of"
-                    if tokens[2] == "Business":
-                        dbdict["College Code"] = "BUS"
+                        # Aviation
 
-                    elif tokens[2] == "Architecture":
-                        dbdict["College Code"] = "ARC"
+                        elif tokens[2] == "Earth":
+                            dbdict["College Code"] = "NRG"
 
-                    elif tokens[2] == "Arts":
-                        dbdict["College Code"] = "ARTSN"
+                        elif tokens[2] == "Education":
+                            dbdict["College Code"] = "EDU"
 
-                    elif tokens[2] == "Atmospheric":
-                        dbdict["College Code"] = "GEO"
+                        elif tokens[2] == "Engineering":
+                            dbdict["College Code"] = "ENGR"
 
-                    # Aviation
+                        elif tokens[2] == "Fine":
+                            dbdict["College Code"] = "FARTS"  # haha
 
-                    elif tokens[2] == "Earth":
-                        dbdict["College Code"] = "NRG"
+                        # Honors College
 
-                    elif tokens[2] == "Education":
-                        dbdict["College Code"] = "EDU"
+                        elif tokens[2] == "International":
+                            dbdict["College Code"] = "INTS"
 
-                    elif tokens[2] == "Engineering":
-                        dbdict["College Code"] = "ENGR"
+                        elif tokens[2] == "Journalism":
+                            dbdict["College Code"] = "JRNL"
 
-                    elif tokens[2] == "Fine":
-                        dbdict["College Code"] = "FARTS"  # haha
+                        elif tokens[2] == "Professional":
+                            dbdict["College Code"] = "PROF"
 
-                    # Honors College
+                        # University College
 
-                    elif tokens[2] == "International":
-                        dbdict["College Code"] = "INTS"
+                        # Center for Independent and Distant Learning
 
-                    elif tokens[2] == "Journalism":
-                        dbdict["College Code"] = "JRNL"
+                        # Expository Writing
 
-                    elif tokens[2] == "Professional":
-                        dbdict["College Code"] = "PROF"
+                        # ROTC
 
-                    # University College
+                    elif "Total Enrollment" in lines[i]:
+                        tokens = lines[i].split(" ")
+                        debug = "Total Enrollment"
+                        for n in range(0, len(tokens)):
+                            if 'Enrollment' in tokens[n]:
+                                dbdict["Instructor Enrollment"] = int(tokens[n+1])
 
-                    # Center for Independent and Distant Learning
+                    if "Course:" in lines[i]:
+                        tokens = lines[i].split(" ")
+                        debug = "Course:"
+                        dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
+                        dbdict["Subject Code"] = tokens[1]
 
-                    # Expository Writing
+                        # Some Subject Codes are separated by spaces
+                        try:
+                            dbdict["Course Number"] = int(tokens[2][:4])
+                            dbdict["Section Number"] = int(tokens[2][-3:])
+                        except ValueError:
+                            dbdict["Subject Code"] += tokens[2]
+                            dbdict["Course Number"] = int(tokens[3][:4])
+                            dbdict["Section Number"] = int(tokens[3][-3:])
 
-                    # ROTC
+                    elif "Instructors:" in lines[i] or "instructors:" in lines[i]:
+                        print(lines[i])
+                        debug = "Instructors:"
+                        tokens = lines[i].split(" ")
+                        dbdict["Instructor First Name"] = tokens[1].title()
+                        dbdict["Instructor Last Name"] = tokens[2].title()
+                        instructor2["Instructor First Name"] = tokens[4].title()
+                        instructor2["Instructor Last Name"] = tokens[5].title()
+                        if len(tokens) > 6:
+                            if tokens[6] == "/":
+                                instructor3["Instructor First Name"] = tokens[7].title()
+                                instructor3["Instructor Last Name"] = tokens[8].title()
 
-                elif "Total Enrollment" in lines[i]:
-                    tokens = lines[i].split(" ")
-                    debug = "Total Enrollment"
-                    for n in range(0, len(tokens)):
-                        if 'Enrollment' in tokens[n]:
-                            dbdict["Instructor Enrollment"] = int(tokens[n+1])
+                    elif "Instructor:" in lines[i] or "instructor:" in lines[i]:
+                        print(lines[i])
+                        debug = "Instructor:"
+                        tokens = lines[i].split(" ")
+                        dbdict["Instructor First Name"] = tokens[1].title()
+                        dbdict["Instructor Last Name"] = tokens[2].title()
+                        if len(tokens) > 3:
+                            dbdict["Instructor Last Name"] += tokens[3].title()
 
-                if "Course:" in lines[i]:
-                    tokens = lines[i].split(" ")
-                    debug = "Course:"
-                    dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
-                    dbdict["Subject Code"] = tokens[1]
+                    elif "Section Title" in lines[i]:
+                        debug = "Section Title"
+                        dbdict["Section Title"] = lines[i][15:]
 
-                    # Some Subject Codes are separated by spaces
-                    try:
-                        dbdict["Course Number"] = int(tokens[2][:4])
-                        dbdict["Section Number"] = int(tokens[2][-3:])
-                    except ValueError:
-                        dbdict["Subject Code"] += tokens[2]
-                        dbdict["Course Number"] = int(tokens[3][:4])
-                        dbdict["Section Number"] = int(tokens[3][-3:])
+                    i += 1
 
-                elif "Instructors:" in lines[i] or "instructors:" in lines[i]:
-                    print(lines[i])
-                    debug = "Instructors:"
-                    tokens = lines[i].split(" ")
-                    dbdict["Instructor First Name"] = tokens[1].title()
-                    dbdict["Instructor Last Name"] = tokens[2].title()
-                    instructor2["Instructor First Name"] = tokens[4].title()
-                    instructor2["Instructor Last Name"] = tokens[5].title()
-                    if len(tokens) > 6:
-                        if tokens[6] == "/":
-                            instructor3["Instructor First Name"] = tokens[7].title()
-                            instructor3["Instructor Last Name"] = tokens[8].title()
-
-                elif "Instructor:" in lines[i] or "instructor:" in lines[i]:
-                    print(lines[i])
-                    debug = "Instructor:"
-                    tokens = lines[i].split(" ")
-                    dbdict["Instructor First Name"] = tokens[1].title()
-                    dbdict["Instructor Last Name"] = tokens[2].title()
-                    if len(tokens) > 3:
-                        dbdict["Instructor Last Name"] += tokens[3].title()
-
-                elif "Section Title" in lines[i]:
-                    debug = "Section Title"
-                    dbdict["Section Title"] = lines[i][15:]
-
-                i += 1
-
-            # find if we are testing or not, use appropriate collection
-            if sys.argv[2] == "True":
-                collection_name = "test_joe"
-            else:
-                try:
-                    collection_name = dbdict["College Code"].upper()
-                    collection = db[collection_name]
-                except KeyError:
-                    collection_name = "bad_data"
-                    collection = db[collection_name]
-
-        except ValueError:
-            print("============================================================================================================")
-            print("Bad Data Here!! May have to manually input!! " + f)
-            print(tokens)
-            print(debug)
-            baddata.append(f + "\n")
-            with open("baddata.txt", "a+") as ff:
-                ff.write(f)
-
-            print("============================================================================================================")
-
-        except IndexError:
-            print("============================================================================================================")
-            print("Bad Data Here!! May have to manually input!! " + f)
-            print(tokens)
-            print(debug)
-            baddata.append(f)
-            with open("baddata.txt", "a+") as ff:
-                ff.write(f + "\n")
-
-            print("============================================================================================================")
-
-        except KeyError as e:
-            print("============================================================================================================")
-            print("Bad Data Here!! May have to manually input!! " + f)
-            print(e)
-            print(tokens)
-            print(debug)
-            baddata.append(f)
-            with open("baddata.txt", "a+") as ff:
-                ff.write(f + "\n")
-            print("============================================================================================================")
-
-        try:
-            for i in range(0, len(db_objects)):
-                db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
-                db_objects[i]["College Code"] = dbdict["College Code"]
-                db_objects[i]["Subject Code"] = dbdict["Subject Code"]
-                db_objects[i]["Course Number"] = dbdict["Course Number"]
-                db_objects[i]["Section Number"] = dbdict["Section Number"]
-                db_objects[i]["Section Title"] = dbdict["Section Title"]
-                db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
-                db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
-                find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                               'Instructor Last Name': dbdict["Instructor Last Name"]})
-                # If this professor already has an ID
-                if find_id != None:
-                    db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                # Else just use python's hash function to make one for them, should be sufficiently unique
+                # find if we are testing or not, use appropriate collection
+                """
+                if sys.argv[2] == "True":
+                    collection_name = "test_joe"
                 else:
-                    db_objects[i]["Instructor ID"] = hash(
-                        dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                print("Adding " + dbdict["Instructor First Name"] + " " +
-                      dbdict["Instructor Last Name"] + " to " + collection_name)
-                collection.insert_one(db_objects[i])
+                    try:
+                        collection_name = dbdict["College Code"].upper()
+                        collection = db[collection_name]
+                    except KeyError:
+                        collection_name = "bad_data"
+                        collection = db[collection_name]
+                """
 
-            # If there is an Instructor 2, just change the name and ID
-            if instructor2:
+            except ValueError:
+                print("============================================================================================================")
+                print("Bad Data Here!! May have to manually input!! " + f)
+                print(tokens)
+                print(debug)
+                baddata.append(f + "\n")
+                with open("baddata.txt", "a+") as ff:
+                    ff.write(f)
+
+                print("============================================================================================================")
+
+            except IndexError:
+                print("============================================================================================================")
+                print("Bad Data Here!! May have to manually input!! " + f)
+                print(tokens)
+                print(debug)
+                baddata.append(f)
+                with open("baddata.txt", "a+") as ff:
+                    ff.write(f + "\n")
+
+                print("============================================================================================================")
+
+            except KeyError as e:
+                print("============================================================================================================")
+                print("Bad Data Here!! May have to manually input!! " + f)
+                print(e)
+                print(tokens)
+                print(debug)
+                baddata.append(f)
+                with open("baddata.txt", "a+") as ff:
+                    ff.write(f + "\n")
+                print("============================================================================================================")
+
+            try:
+
                 for i in range(0, len(db_objects)):
-                    # Instructor ID
-                    db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
-                    db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
-                    # Needed so that we arent trying to add a duplicate object_id
-                    db_objects[i].pop('_id', None)
+                    db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
+                    db_objects[i]["College Code"] = dbdict["College Code"]
+                    db_objects[i]["Subject Code"] = dbdict["Subject Code"]
+                    db_objects[i]["Course Number"] = dbdict["Course Number"]
+                    db_objects[i]["Section Number"] = dbdict["Section Number"]
+                    db_objects[i]["Section Title"] = dbdict["Section Title"]
+                    db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
+                    db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
+                    """
                     find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
                                                    'Instructor Last Name': dbdict["Instructor Last Name"]})
                     # If this professor already has an ID
                     if find_id != None:
                         db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
+                    
                     # Else just use python's hash function to make one for them, should be sufficiently unique
                     else:
-                        db_objects[i]["Instructor ID"] = hash(
-                            dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                    print("Adding " + instructor2["Instructor First Name"] + " " +
-                          instructor2["Instructor Last Name"] + " to " + collection_name)
-                    collection.insert_one(db_objects[i])
+                    """
+                    db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
+                    print("Adding " + dbdict["Instructor First Name"] + " " +
+                          dbdict["Instructor Last Name"] + " to " + dbdict["College Code"])
+                    #collection.insert_one(db_objects[i])
+                    with open(str(current.name) + ".txt", "a+") as ff:
+                        ff.write(str(db_objects[i]) + "\n")
 
-            # If there is an Instructor 2, just change the name and ID
-            if instructor3:
-                for i in range(0, len(db_objects)):
-                    # Instructor ID
-                    db_objects[i]["Instructor First Name"] = instructor3["Instructor First Name"]
-                    db_objects[i]["Instructor Last Name"] = instructor3["Instructor Last Name"]
-                    # Needed so that we arent trying to add a duplicate object_id
-                    db_objects[i].pop('_id', None)
-                    find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                                   'Instructor Last Name': dbdict["Instructor Last Name"]})
-                    # If this professor already has an ID
-                    if find_id != None:
-                        db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                    # Else just use python's hash function to make one for them, should be sufficiently unique
-                    else:
-                        db_objects[i]["Instructor ID"] = hash(
-                            dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                    print("Adding " + instructor3["Instructor First Name"] + " " +
-                          instructor3["Instructor Last Name"] + " to " + collection_name)
-                    collection.insert_one(db_objects[i])
 
-        except KeyError:
-            print("============================================================================================================")
-            print("Could Not Add to DB!! OCR likely read in a strange manner... See what field we are missing from " + f)
-            print(db_objects[i])
-            baddata.append(f)
-            with open("baddata.txt", "a+") as ff:
-                ff.write(f + "\n")
-            print("============================================================================================================")
+                # If there is an Instructor 2, just change the name and ID
+                if instructor2:
+                    for i in range(0, len(db_objects)):
+                        # Instructor ID
+                        db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
+                        db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
+                        # Needed so that we arent trying to add a duplicate object_id
+                        db_objects[i].pop('_id', None)
 
-    file_name = os.fsencode("pdfs/jpgs/" + f.rstrip(".pdf") + ".jpg")
-    os.remove(file_name)
+                        """
+                        find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
+                                                       'Instructor Last Name': dbdict["Instructor Last Name"]})
+                        # If this professor already has an ID
+                        if find_id != None:
+                            db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
+                        
 
+                        # Else just use python's hash function to make one for them, should be sufficiently unique
+                        else:
+                        """
+                        db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
+                        print("Adding " + instructor2["Instructor First Name"] + " " +
+                              instructor2["Instructor Last Name"] + " to " + dbdict["College Code"])
+
+                        #collection.insert_one(db_objects[i])
+
+                        with open(str(current.name) + ".txt", "a+") as ff:
+                            ff.write(str(db_objects[i]) + "\n")
+
+                # If there is an Instructor 2, just change the name and ID
+                if instructor3:
+                    for i in range(0, len(db_objects)):
+                        # Instructor ID
+                        db_objects[i]["Instructor First Name"] = instructor3["Instructor First Name"]
+                        db_objects[i]["Instructor Last Name"] = instructor3["Instructor Last Name"]
+                        # Needed so that we arent trying to add a duplicate object_id
+                        db_objects[i].pop('_id', None)
+
+                        """
+                        find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
+                                                       'Instructor Last Name': dbdict["Instructor Last Name"]})
+                        # If this professor already has an ID
+                        if find_id != None:
+                            db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
+                        
+
+                        # Else just use python's hash function to make one for them, should be sufficiently unique
+                        else:
+                        """
+                        db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
+                        print("Adding " + instructor3["Instructor First Name"] + " " +
+                              instructor3["Instructor Last Name"] + " to " + dbdict["College Code"])
+
+                        #collection.insert_one(db_objects[i])
+
+                        with open(str(current.name) + ".txt", "a+") as ff:
+                            ff.write(str(db_objects[i]) + "\n")
+
+            except KeyError:
+                print("============================================================================================================")
+                print("Could Not Add to DB!! OCR likely read in a strange manner... See what field we are missing from " + f)
+                print(db_objects[i])
+                baddata.append(f)
+                with open("baddata.txt", "a+") as ff:
+                    ff.write(f + "\n")
+                print("============================================================================================================")
+
+
+        with open("run_files.txt", "a+") as runf:
+            runf.write(f + "\n")
+
+        file_name = os.fsencode("pdfs/jpgs/" + f.rstrip(".pdf") + ".jpg")
+        os.remove(file_name)
+
+        return
+
+    except pymongo.errors.AutoReconnect:
+        print("sleeping...")
+        baddata.append(f)
+        with open("baddata.txt", "a+") as ff:
+            ff.write(f + "\n")
+        time.sleep(300)
+        return
+
+    except DNSException:
+        print("DNS Timeout... sleeping for a bit...")
+        baddata.append(f)
+        with open("baddata.txt", "a+") as ff:
+            ff.write(f + "\n")
+        time.sleep(300)
+        return
+
+            
 
 if __name__ == '__main__':
 
@@ -631,34 +688,35 @@ if __name__ == '__main__':
         exit(0)
 
     else:
-         print("Crawling...")
+        """
+        print("Crawling...")
  
-         url = "http://www.ou.edu/provost/course-evaluation-data"
+        url = "http://www.ou.edu/provost/course-evaluation-data"
  
-         names = web_crawl(url)
+        names = web_crawl(url)
  
-         # print(names)
- 
-         for name in names:
-             print("Splitting: " + name)
-             pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+        # print(names)
+        for name in names:
+            print("Splitting: " + name)
+            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+        """
 
         directory = os.fsencode('pdfs/split/')
-        # parse_files(directory)
         files = os.listdir(directory)
+        # parse_files(directory)
 
         CPUS = os.cpu_count()
         print("Number of CPU's detected: {}".format(CPUS))
         print("Running with {} processes".format(CPUS//2))
         #list(map(parse_files, files))
         #with Pool(processes=CPUS//2) as pool:
-        with Pool(processes=3) as pool:
-            r = list(tqdm(pool.imap(parse_files, files), total=len(files)))
+        
+        with Pool(processes=4) as pool:
+            r = list(pool.imap(parse_files, files))
+        
 
-        with open("baddata.txt", "a+") as f:
-            for i in range(0, len(baddata)):
-                f.write(baddata[i])
 
-        print(baddata)
+
+        #print(baddata)
 
         exit(0)
