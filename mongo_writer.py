@@ -3,8 +3,6 @@ from tqdm import tqdm
 from pymongo import MongoClient
 
 
-
-client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
 db = client["ocr_db"]
 
 

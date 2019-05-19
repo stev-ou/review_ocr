@@ -77,7 +77,6 @@ def web_crawl(url):
         full_url = url + link.get('href')
         if full_url.endswith('.pdf'):
             sel = soup.select('a')[i].attrs['href']
-            # Now to aptly name these files... finna get ugly here
             for year in CURRENT_YEARS:
                 if year in sel:
                     for semester in SEMESTERS.keys():
@@ -190,11 +189,6 @@ def bug_city(l, key):
 
 def parse_files(file):
     try:
-        """
-        client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
-                         "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
-        db = client[db_name]
-        """
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
 
@@ -405,8 +399,7 @@ def parse_files(file):
                         break
 
                 # Need to iterate twice bc sometimes it reads out of order
-                i = 0
-                # try:
+                i = 
 
                 while i < len(lines):
                     if "College of" in lines[i]:
@@ -714,9 +707,5 @@ if __name__ == '__main__':
         with Pool(processes=4) as pool:
             r = list(pool.imap(parse_files, files))
         
-
-
-
-        #print(baddata)
 
         exit(0)
