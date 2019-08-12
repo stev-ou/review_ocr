@@ -2,8 +2,8 @@ import os
 from tqdm import tqdm
 from pymongo import MongoClient
 
-
-db = client["ocr_db"]
+# Define the ocr_db to write to in Mongo
+db = client["ocr-db-v1"]
 
 
 def mongo_writer(file):

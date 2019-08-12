@@ -4,7 +4,6 @@ import urllib.request
 import urllib.error
 from multiprocessing import Pool
 import multiprocessing
-
 try:
     from PIL import Image
 except ImportError:
@@ -21,10 +20,12 @@ from tqdm import tqdm
 import time
 from dns.exception import DNSException
 
+from tika import parser
+
 db_name = sys.argv[1]
 debug = ""
 
-CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
+CURRENT_YEARS = ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
 # See line 217...
 BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——']
@@ -210,6 +211,18 @@ def parse_files(file):
             # Now that we have a jpg, we can read it into text -  just a massive wall of text
             img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
             text = pytesseract.image_to_string(img)
+
+            # Save txt to file to compare
+            with open('pdfs/txts/Wand/' + f.rstrip(".pdf") + '.txt', 'w') as txtf:
+                txtf.write(text)
+
+
+             # Use Tika to convert text from pdf
+            raw = parser.from_file(directory + file)
+
+            # Save the txt file to compare
+            with open('pdfs/txts/Tika/' + f.rstrip(".pdf")+ '.txt', 'w') as txtf:
+                txtf.write(raw['content'])
 
             # list of the dbdictionaries that will be added to the DataBase
             db_objects = []
@@ -399,7 +412,7 @@ def parse_files(file):
                         break
 
                 # Need to iterate twice bc sometimes it reads out of order
-                i = 
+                i = 0
 
                 while i < len(lines):
                     if "College of" in lines[i]:
@@ -647,7 +660,7 @@ def parse_files(file):
             runf.write(f + "\n")
 
         file_name = os.fsencode("pdfs/jpgs/" + f.rstrip(".pdf") + ".jpg")
-        os.remove(file_name)
+        # os.remove(file_name)
 
         return
 
@@ -666,7 +679,6 @@ def parse_files(file):
             ff.write(f + "\n")
         time.sleep(300)
         return
-
             
 
 if __name__ == '__main__':
@@ -677,7 +689,9 @@ if __name__ == '__main__':
     if sys.argv[2] == "True":
         pdf_splitter("test/bus201410.pdf", "bus", "201410")
         directory = os.fsencode('test/split/')
-        parse_files(directory)
+        files = os.listdir(directory)
+        for file in files:
+            parse_files(file)
         exit(0)
 
     else:
@@ -703,7 +717,7 @@ if __name__ == '__main__':
         print("Running with {} processes".format(CPUS//2))
         #list(map(parse_files, files))
         #with Pool(processes=CPUS//2) as pool:
-        
+        exit(0)
         with Pool(processes=4) as pool:
             r = list(pool.imap(parse_files, files))
         
