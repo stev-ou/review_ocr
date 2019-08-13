@@ -216,9 +216,10 @@ def parse_files(file):
             with open('pdfs/txts/Wand/' + f.rstrip(".pdf") + '.txt', 'w') as txtf:
                 txtf.write(text)
 
-
              # Use Tika to convert text from pdf
             raw = parser.from_file(directory + file)
+            text_Tika = raw['content']
+            lines_Tika = text_Tika.splitlines()
 
             # Save the txt file to compare
             with open('pdfs/txts/Tika/' + f.rstrip(".pdf")+ '.txt', 'w') as txtf:
@@ -236,7 +237,7 @@ def parse_files(file):
             n, d, c, s = 0, 0, 0, 0
 
             # Store only the necessary line information, since sometimes lines are mixed together
-            for i in range(0, len(lines)):
+            for i in range(len(lines)):
                 if "INDIVIDUAL" in lines[i]:
                     ind.append([])
                     tokens = lines[i].split(" ")
@@ -414,8 +415,8 @@ def parse_files(file):
                 # Need to iterate twice bc sometimes it reads out of order
                 i = 0
 
-                while i < len(lines):
-                    if "College of" in lines[i]:
+                while i < len(lines_Tika):
+                    if "College of" in lines_Tika[i]:
                         tokens = lines[i].split(" ")
                         debug = "College of"
                         if tokens[2] == "Business":
