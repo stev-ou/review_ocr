@@ -68,42 +68,47 @@ def pdf_splitter(path, col, term):
 def web_crawl(url):
     """
     This function will crawl the given url, and download specific pdfs that correspond to the 
-    entries in the Keyword_col_mapper.
+    entries in the header_col_mapper.
     """
-    Keyword_col_mapper = {'Sciences':'artsn', 'Architecture':'arc', 'Atmospheric':'geo', 
-        'Business':'bus', 'Energy':'nrg', 'Education': 'edu', 'Engineering':'engr',
-        'Fine':'farts', 'International':'ints', 'Journalism':'jrnl', 'Professional':'prof'}
+    # These map the headers in the college to the 
+    header_col_mapper = {'College of Architecture': 'CoA', 
+    'College of Arts and Sciences': 'CoAaS', 
+    'College of Atmospheric & Geographic Sciences': 'CoA&GS', 
+    'College of Continuing Education - Department of Aviation': 'CoCE-DoA', 
+    'Michael F. Price College of Business': 'MFPCoB', 
+    'Melbourne College of Earth and Energy': 'MCoEaE', 
+    'Jeannine Rainbolt College of Education': 'JRCoE', 
+    'Gallogly College of Engineering': 'GCoE', 
+    'Weitzenhoffer Family College of Fine Arts': 'WFCoFA', 
+    'Honors College': 'HC', 'College of International Studies': 'CoIS', 
+    'Gaylord College of Journalism and Mass Communication': 'GCoJaMC', 
+    'College of Professional and Continuing Studies': 'CoPaCS', 
+    'University College': 'UC', 'Center for Independent and Distance Learning': 'CfIaDL', 
+    'Expository Writing Program': 'EWP', 'ROTC - Air Force': 'R-AF'}
+
     urls = []
     names = []
     page = requests.get(url, timeout=5)
     soup = BeautifulSoup(page.text, "html.parser")
     print(len(soup.findAll('div')))
-    for div in soup.findAll('div'):
-        # print(div.attrs['class'])
+    # Each header with a 'articleheader' tag contains title for a college; 
+    # Get this div, so we can check the next div for encompassed pdfs
+    for i, div in enumerate(soup.findAll('div')):
         if 'class' in div.attrs:
-            print(div.attrs['class'])
-            # print(div.getChildren())
-        # help(div)
-    return
-
-    for i, link in enumerate(soup.findAll('a')):
-        full_url = url + link.get('href')
-        if full_url.endswith('.pdf'):
-            sel = soup.select('a')[i].attrs['href'].lower()
-            # soup.select('a')[i].attrs
-            # pprint.pprint(soup.select('a')[i].attrs)
-            # print('\n\n')
-            # print(link.find('a'))
-            # exit(0)
-            for year in CURRENT_YEARS:
-                if year.lower() in sel:
-                    for semester in SEMESTERS.keys():
-                        if semester.lower() in sel:
-                            for key in Keyword_col_mapper.keys():
-                                if key.lower() in sel:
-                                    col = Keyword_col_mapper[key]
+            if 'articleheader' in div.attrs['class'] and len(div.text)>0:
+                # col_header is key to determine college
+                col_header = div.text.strip('\n\n')
+                col = header_col_mapper[col_header]
+                # The semesters for the colleges are in div index i+4; get anchors from this index
+                anchors = soup.findAll('div')[i+4].findChildren('a', recursive=True)
+                for a in anchors:
+                    for year in CURRENT_YEARS:
+                        if year in a.text:
+                            for semester in SEMESTERS.keys():
+                                if semester in a.text:
                                     # We are only saving the urls/names of current years and desired colleges
                                     # Gotta git rid of some unnecessary characters in the url
+                                    full_url = a.attrs['href']
                                     pdf_url = full_url[:18] + full_url[49:]
                                     if pdf_url not in urls:
                                         urls.append(pdf_url)
