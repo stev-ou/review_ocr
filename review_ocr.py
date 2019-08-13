@@ -8,8 +8,6 @@ try:
     from PIL import Image
 except ImportError:
     import Image
-# import pytesseract
-# from wand.image import Image as Img
 import pprint
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
@@ -19,7 +17,6 @@ import pymongo
 from tqdm import tqdm
 import time
 from dns.exception import DNSException
-
 from tika import parser
 
 db_name = sys.argv[1]
@@ -70,7 +67,8 @@ def pdf_splitter(path, col, term):
 
 def web_crawl(url):
     """
-    This function will crawl the given url, and download specific pdfs
+    This function will crawl the given url, and download specific pdfs that correspond to the 
+    entries in the Keyword_col_mapper.
     """
     Keyword_col_mapper = {'Sciences':'artsn', 'Architecture':'arc', 'Atmospheric':'geo', 
         'Business':'bus', 'Energy':'nrg', 'Education': 'edu', 'Engineering':'engr',
@@ -79,16 +77,30 @@ def web_crawl(url):
     names = []
     page = requests.get(url, timeout=5)
     soup = BeautifulSoup(page.text, "html.parser")
+    print(len(soup.findAll('div')))
+    for div in soup.findAll('div'):
+        # print(div.attrs['class'])
+        if 'class' in div.attrs:
+            print(div.attrs['class'])
+            # print(div.getChildren())
+        # help(div)
+    return
+
     for i, link in enumerate(soup.findAll('a')):
         full_url = url + link.get('href')
         if full_url.endswith('.pdf'):
-            sel = soup.select('a')[i].attrs['href']
+            sel = soup.select('a')[i].attrs['href'].lower()
+            # soup.select('a')[i].attrs
+            # pprint.pprint(soup.select('a')[i].attrs)
+            # print('\n\n')
+            # print(link.find('a'))
+            # exit(0)
             for year in CURRENT_YEARS:
-                if year in sel:
+                if year.lower() in sel:
                     for semester in SEMESTERS.keys():
-                        if semester in sel:
+                        if semester.lower() in sel:
                             for key in Keyword_col_mapper.keys():
-                                if key in sel:
+                                if key.lower() in sel:
                                     col = Keyword_col_mapper[key]
                                     # We are only saving the urls/names of current years and desired colleges
                                     # Gotta git rid of some unnecessary characters in the url
@@ -654,7 +666,8 @@ def parse_files(file):
 
 if __name__ == '__main__':
     # Testing for web crawl
-    print(web_crawl('https://www.ou.edu/provost/course-evaluation-data'))
+    names = web_crawl('https://www.ou.edu/provost/course-evaluation-data')
+    print(len(names))
     exit(0)
 
 
@@ -695,6 +708,5 @@ if __name__ == '__main__':
         exit(0)
         with Pool(processes=4) as pool:
             r = list(pool.imap(parse_files, files))
-        
-
+    
         exit(0)
