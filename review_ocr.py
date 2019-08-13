@@ -8,8 +8,8 @@ try:
     from PIL import Image
 except ImportError:
     import Image
-import pytesseract
-from wand.image import Image as Img
+# import pytesseract
+# from wand.image import Image as Img
 import pprint
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
@@ -69,7 +69,12 @@ def pdf_splitter(path, col, term):
 
 
 def web_crawl(url):
-    # This function will crawl the given url, and download specific pdfs
+    """
+    This function will crawl the given url, and download specific pdfs
+    """
+    Keyword_col_mapper = {'Sciences':'artsn', 'Architecture':'arc', 'Atmospheric':'geo', 
+        'Business':'bus', 'Energy':'nrg', 'Education': 'edu', 'Engineering':'engr',
+        'Fine':'farts', 'International':'ints', 'Journalism':'jrnl', 'Professional':'prof'}
     urls = []
     names = []
     page = requests.get(url, timeout=5)
@@ -82,54 +87,19 @@ def web_crawl(url):
                 if year in sel:
                     for semester in SEMESTERS.keys():
                         if semester in sel:
-
-                            if "Sciences" in sel:
-                                col = "artsn"
-
-                            elif "Architecture" in sel:
-                                col = "arc"
-
-                            elif "Atmospheric" in sel:
-                                col = "geo"
-
-                            # Aviation
-                            elif "Business" in sel:
-                                col = "bus"
-
-                            elif "Energy" in sel:
-                                col = "nrg"
-
-                            elif "Education" in sel:
-                                col = "edu"
-
-                            elif "Engineering" in sel:
-                                col = "engr"
-
-                            elif "Fine" in sel:
-                                col = "farts"  # hahaha
-
-                            elif "International" in sel:
-                                col = "ints"
-
-                            elif "Journalism" in sel:
-                                col = "jrnl"
-
-                            elif "Professional" in sel:
-                                col = "prof"
-                            else:
-                                continue
-
-                            # We are only saving the urls/names of current years and desired colleges
-                            # Gotta git rid of some unnecessary characters in the url
-                            pdf_url = full_url[:18] + full_url[49:]
-                            if pdf_url not in urls:
-                                urls.append(pdf_url)
-                                names.append(str(col) + str(year) +
-                                             str(SEMESTERS[semester]))
-                                print("Adding %s to Write Queue..." % (
-                                    str(col) + str(year) + str(SEMESTERS[semester])))
-                                print(pdf_url + "\n")
-                            continue
+                            for key in Keyword_col_mapper.keys():
+                                if key in sel:
+                                    col = Keyword_col_mapper[key]
+                                    # We are only saving the urls/names of current years and desired colleges
+                                    # Gotta git rid of some unnecessary characters in the url
+                                    pdf_url = full_url[:18] + full_url[49:]
+                                    if pdf_url not in urls:
+                                        urls.append(pdf_url)
+                                        names.append(str(col) + str(year) +
+                                                    str(SEMESTERS[semester]))
+                                        print(f"Adding {col}{year}{SEMESTERS[semester]} to Write Queue...")
+                                        print(pdf_url + "\n")
+    return names
 
     names_urls = zip(names, urls)
     # Now we "download" the pdfs by writing to pdf files
@@ -204,13 +174,13 @@ def parse_files(file):
             instructor3 = {}
 
             # Can't read from pdfs, so we need to convert each one to a jpg
-            with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
-                img.compression_quality = 99
-                img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
+            # with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
+            #     img.compression_quality = 99
+            #     img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
 
             # Now that we have a jpg, we can read it into text -  just a massive wall of text
-            img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
-            text = pytesseract.image_to_string(img)
+            # img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
+            # text = pytesseract.image_to_string(img)
 
             # Save txt to file to compare
             with open('pdfs/txts/Wand/' + f.rstrip(".pdf") + '.txt', 'w') as txtf:
@@ -683,6 +653,10 @@ def parse_files(file):
             
 
 if __name__ == '__main__':
+    # Testing for web crawl
+    print(web_crawl('https://www.ou.edu/provost/course-evaluation-data'))
+    exit(0)
+
 
     if len(sys.argv) < 3 or len(sys.argv) > 3:
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
