@@ -35,36 +35,6 @@ FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
           ]
 baddata = []
 
-
-def pdf_splitter(path, col, term):
-    # This will take a pdf and split it into individual pages, saving them to directory pdfs/split
-    fname = os.path.splitext(os.path.basename(path))[0]
-    pnum = 0
-    try:
-        pdf = PdfFileReader(path)
-    except FileNotFoundError:
-        print("==========================================================================================")
-        print("Cannot Find File: " + path)
-        print("==========================================================================================")
-        return
-    for page in range(pdf.getNumPages()):
-        pdf_writer = PdfFileWriter()
-        pdf_writer.addPage(pdf.getPage(page))
-
-        output_filename = str(page+1) + col + term + ".pdf"
-
-        try:
-            with open(path.split("/", 1)[0] + "/split/" + output_filename, 'xb') as out:
-                pdf_writer.write(out)
-                print('Created: {}'.format(output_filename))
-        except FileExistsError:
-            print(output_filename + " ALREADY EXISTS!")
-
-        pnum += 1
-
-    return pnum
-
-
 def web_crawl(url):
     """
     This function will crawl the given url, and download specific pdfs that correspond to the 
@@ -103,24 +73,27 @@ def web_crawl(url):
                 anchors = soup.findAll('div')[i+4].findChildren('a', recursive=True)
                 for a in anchors:
                     for year in CURRENT_YEARS:
-                        if year in a.text:
-                            for semester in SEMESTERS.keys():
-                                if semester in a.text:
-                                    # We are only saving the urls/names of current years and desired colleges
-                                    # Gotta git rid of some unnecessary characters in the url
-                                    full_url = a.attrs['href']
-                                    pdf_url = full_url[:18] + full_url[49:]
-                                    if pdf_url not in urls:
-                                        urls.append(pdf_url)
-                                        names.append(str(col) + str(year) +
-                                                    str(SEMESTERS[semester]))
-                                        print(f"Adding {col}{year}{SEMESTERS[semester]} to Write Queue...")
-                                        print(pdf_url + "\n")
-    return names
-
-    names_urls = zip(names, urls)
+                        for semester in SEMESTERS.keys():
+                            if semester in a.text and year in a.text:
+                                # We are only saving the urls/names of current years and desired colleges
+                                # Gotta git rid of some unnecessary characters in the url and set it up to parse properly
+                                if 'https://' in a.get('href'):
+                                    print('Error on ' + f'{col}{year}{SEMESTERS[semester]}')
+                                    continue
+                                else:
+                                    full_url = url + a.get('href')
+                                # pdf_url = full_url
+                                pdf_url = (full_url[:18] + full_url[49:])
+                                name = f'{col}{year}{SEMESTERS[semester]}'
+                                if pdf_url not in urls and name not in names: # Kind of sketchy, theoretically shouldnt be duplicates
+                                    urls.append(pdf_url)
+                                    names.append(str(col) + str(year) +
+                                                str(SEMESTERS[semester]))
+                                    print(f"Adding {col}{year}{SEMESTERS[semester]} to Write Queue...")
+                                    print(pdf_url + "\n")
+    # Finished scraping, all college semester names in names, urls
     # Now we "download" the pdfs by writing to pdf files
-    for name, url in names_urls:
+    for name, url in zip(names, urls):
         try:
             print("Attempting to open: " + url)
             resp = urllib.request.urlopen(url)
@@ -136,9 +109,37 @@ def web_crawl(url):
         except urllib.error.HTTPError:
             print("404 Error on this page... This PDF may not exist yet.\n")
             names.remove(name)
-
     return names
 
+def pdf_splitter(path, col, term):
+    """
+    This function takes a pdf and splits it into individual pages, saving them to directory pdfs/split
+    """
+    fname = os.path.splitext(os.path.basename(path))[0]
+    pnum = 0
+    try:
+        pdf = PdfFileReader(path)
+    except FileNotFoundError:
+        print("==========================================================================================")
+        print("Cannot Find File: " + path)
+        print("==========================================================================================")
+        return
+    for page in range(pdf.getNumPages()):
+        pdf_writer = PdfFileWriter()
+        pdf_writer.addPage(pdf.getPage(page))
+
+        output_filename = str(page+1) + col + term + ".pdf"
+
+        try:
+            with open(path.split("/", 1)[0] + "/split/" + output_filename, 'xb') as out:
+                pdf_writer.write(out)
+                print('Created: {}'.format(output_filename))
+        except FileExistsError:
+            print(output_filename + " ALREADY EXISTS!")
+
+        pnum += 1
+
+    return pnum
 
 def bug_city(l, key):
     # Welcome to Bug City
@@ -671,10 +672,7 @@ def parse_files(file):
 
 if __name__ == '__main__':
     # Testing for web crawl
-    names = web_crawl('https://www.ou.edu/provost/course-evaluation-data')
-    print(len(names))
-    exit(0)
-
+    # names = web_crawl('https://www.ou.edu/provost/course-evaluation-data')
 
     if len(sys.argv) < 3 or len(sys.argv) > 3:
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
