@@ -4,6 +4,7 @@ import urllib.request
 import urllib.error
 from multiprocessing import Pool
 import multiprocessing
+import re
 try:
     from PIL import Image
 except ImportError:
@@ -19,12 +20,11 @@ import time
 from dns.exception import DNSException
 from tika import parser
 
-db_name = sys.argv[1]
 debug = ""
 
 CURRENT_YEARS = ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
-# See line 217...
+
 BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——']
 BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5,
              "iD": 5, "iD)": 5, "S": 5, "a": 5}
@@ -35,27 +35,27 @@ FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
           ]
 baddata = []
 
+# These map the headers in the college to the short names in the db
+header_col_mapper = {'College of Architecture': 'CoA', 
+'College of Arts and Sciences': 'CoAaS', 
+'College of Atmospheric & Geographic Sciences': 'CoA&GS', 
+'College of Continuing Education - Department of Aviation': 'CoCE-DoA', 
+'Michael F. Price College of Business': 'MFPCoB', 
+'Melbourne College of Earth and Energy': 'MCoEaE', 
+'Jeannine Rainbolt College of Education': 'JRCoE', 
+'Gallogly College of Engineering': 'GCoE', 
+'Weitzenhoffer Family College of Fine Arts': 'WFCoFA', 
+'Honors College': 'HC', 'College of International Studies': 'CoIS', 
+'Gaylord College of Journalism and Mass Communication': 'GCoJaMC', 
+'College of Professional and Continuing Studies': 'CoPaCS', 
+'University College': 'UC', 'Center for Independent and Distance Learning': 'CfIaDL', 
+'Expository Writing Program': 'EWP', 'ROTC - Air Force': 'R-AF'}
+
 def web_crawl(url):
     """
     This function will crawl the given url, and download specific pdfs that correspond to the 
     entries in the header_col_mapper.
     """
-    # These map the headers in the college to the 
-    header_col_mapper = {'College of Architecture': 'CoA', 
-    'College of Arts and Sciences': 'CoAaS', 
-    'College of Atmospheric & Geographic Sciences': 'CoA&GS', 
-    'College of Continuing Education - Department of Aviation': 'CoCE-DoA', 
-    'Michael F. Price College of Business': 'MFPCoB', 
-    'Melbourne College of Earth and Energy': 'MCoEaE', 
-    'Jeannine Rainbolt College of Education': 'JRCoE', 
-    'Gallogly College of Engineering': 'GCoE', 
-    'Weitzenhoffer Family College of Fine Arts': 'WFCoFA', 
-    'Honors College': 'HC', 'College of International Studies': 'CoIS', 
-    'Gaylord College of Journalism and Mass Communication': 'GCoJaMC', 
-    'College of Professional and Continuing Studies': 'CoPaCS', 
-    'University College': 'UC', 'Center for Independent and Distance Learning': 'CfIaDL', 
-    'Expository Writing Program': 'EWP', 'ROTC - Air Force': 'R-AF'}
-
     urls = []
     names = []
     page = requests.get(url, timeout=5)
@@ -91,6 +91,7 @@ def web_crawl(url):
                                                 str(SEMESTERS[semester]))
                                     print(f"Adding {col}{year}{SEMESTERS[semester]} to Write Queue...")
                                     print(pdf_url + "\n")
+
     # Finished scraping, all college semester names in names, urls
     # Now we "download" the pdfs by writing to pdf files
     for name, url in zip(names, urls):
@@ -175,8 +176,10 @@ def bug_city(l, key):
 
     return new
 
-
 def parse_files(file):
+    """
+    This function extracts the text from a single page pdf file, then parses the text to fit into a defined schema.
+    """
     try:
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
@@ -201,106 +204,157 @@ def parse_files(file):
             # text = pytesseract.image_to_string(img)
 
             # Save txt to file to compare
-            with open('pdfs/txts/Wand/' + f.rstrip(".pdf") + '.txt', 'w') as txtf:
-                txtf.write(text)
+            # with open('pdfs/txts/Wand/' + f.rstrip(".pdf") + '.txt', 'w') as txtf:
+            #     txtf.write(text)
 
              # Use Tika to convert text from pdf
+            # directory = 'test/split/'
             raw = parser.from_file(directory + file)
             text_Tika = raw['content']
-            lines_Tika = text_Tika.splitlines()
-
+            lines = text_Tika.splitlines()
             # Save the txt file to compare
-            with open('pdfs/txts/Tika/' + f.rstrip(".pdf")+ '.txt', 'w') as txtf:
+            with open('pdfs/txts/' + f.rstrip(".pdf")+ '.txt', 'w') as txtf:
                 txtf.write(raw['content'])
+            # Drop out the empty lines
+            lines= [i for i in lines if i != '']
 
+            # Combine the lines into a single string (they werent sorted by line correctly anyway)
+            full_text = ' '.join(lines)
+            
+            # Separate out the metadata from from the question information
+            meta, Q_text = full_text.split(' College Rank')
+
+            # Separate the question averages from the Response Key
+            Q_text, _ = Q_text.split(' Response Key ')
+
+            def recursive_separate(textfile, separators, section_list = []):
+                """
+                Separates a textfile into a sequential list of sections as dictated by the separators
+                """
+                
+                if len(separators) == 0:
+                    return section_list
+                front,back = textfile.split(separators.pop(0))
+                section_list.append(front)
+                return recursive_separate(back, separators, section_list)
+
+            # Find the Question Numbers and use to get the questions
+            question_numbers = re.findall(r'( [1-9]{1,2}\. )', Q_text)
+
+            # Use the recursive separate to split Q_text into sections
+            Q_sections = recursive_separate(Q_text, question_numbers)
+            return Q_sections
+
+            questions = {}
+            for qn in question_numbers:
+                questions[qn.strip(' ').strip('.')] = re.find()
+
+            
+            ### Parse out the metadata for vars of interest
+            
+            ### Parse the question numbers using regex
+            
+            sections = []
+        
+
+            # # Use the separator to split textfile into sections for parsing 
+            # separators = [' College Rank ', ]
+
+
+
+
+
+            text_by_section = []
+            return lines
             # list of the dbdictionaries that will be added to the DataBase
             db_objects = []
 
-            lines = text.splitlines()
-
-            ind = []
-            dept = []
+            # lines = text.splitlines()
+            IDCSObj = {"INDIVIDUAL":{'count':0, 'ratings':[]}, "DEPARTMENT":{'count':0, 'ratings':[]},
+                "SIMILAR":{'count':0, 'ratings':[]}, "COLLEGE":{'count':0, 'ratings':[]}}
             college = []
             similar = []
             n, d, c, s = 0, 0, 0, 0
 
             # Store only the necessary line information, since sometimes lines are mixed together
-            for i in range(len(lines)):
-                if "INDIVIDUAL" in lines[i]:
-                    ind.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "INDIVIDUAL")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "INDIVIDUAL":
-                            ind[n].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                ind[n].append(tokens[t])
-                                t += 1
-                            if len(ind[n]) < 4:
-                                ind.pop(n)
-                                break
-                            else:
-                                n += 1
-                                break
+            # for i in range(len(lines)):
+            #     for q_keyword in IDSCObj:
+            #         if q_keyword in lines[i]:
+            #     if "INDIVIDUAL" in lines[i]:
+            #         IDSC[]
+            #         tokens = lines[i].split(" ")
+            #         tokens = bug_city(tokens, "INDIVIDUAL")
+            #         t = 0
+            #         for t in range(0, len(tokens)):
+            #             if tokens[t] == "INDIVIDUAL":
+            #                 ind[n].append(tokens[t])
+            #                 t += 1
+            #                 while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+            #                     ind[n].append(tokens[t])
+            #                     t += 1
+            #                 if len(ind[n]) < 4:
+            #                     ind.pop(n)
+            #                     break
+            #                 else:
+            #                     n += 1
+            #                     break
 
-                elif "DEPARTMENT" in lines[i]:
-                    dept.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "DEPARTMENT")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "DEPARTMENT":
-                            dept[d].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                dept[d].append(tokens[t])
-                                t += 1
-                            if len(dept[d]) < 4:
-                                dept.pop(d)
-                                break
-                            else:
-                                d += 1
-                                break
+            #     elif "DEPARTMENT" in lines[i]:
+            #         dept.append([])
+            #         tokens = lines[i].split(" ")
+            #         tokens = bug_city(tokens, "DEPARTMENT")
+            #         t = 0
+            #         for t in range(0, len(tokens)):
+            #             if tokens[t] == "DEPARTMENT":
+            #                 dept[d].append(tokens[t])
+            #                 t += 1
+            #                 while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+            #                     dept[d].append(tokens[t])
+            #                     t += 1
+            #                 if len(dept[d]) < 4:
+            #                     dept.pop(d)
+            #                     break
+            #                 else:
+            #                     d += 1
+            #                     break
 
-                elif "SIMILAR" in lines[i]:
-                    similar.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "SIMILAR")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "SIMILAR_COL":
-                            similar[s].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                similar[s].append(tokens[t])
-                                t += 1
-                            if len(similar[s]) < 4:
-                                similar.pop(s)
-                                break
-                            else:
-                                s += 1
-                                break
+            #     elif "SIMILAR" in lines[i]:
+            #         similar.append([])
+            #         tokens = lines[i].split(" ")
+            #         tokens = bug_city(tokens, "SIMILAR")
+            #         t = 0
+            #         for t in range(0, len(tokens)):
+            #             if tokens[t] == "SIMILAR_COL":
+            #                 similar[s].append(tokens[t])
+            #                 t += 1
+            #                 while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+            #                     similar[s].append(tokens[t])
+            #                     t += 1
+            #                 if len(similar[s]) < 4:
+            #                     similar.pop(s)
+            #                     break
+            #                 else:
+            #                     s += 1
+            #                     break
 
-                elif "COLLEGE" in lines[i]:
-                    college.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "COLLEGE")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "COLLEGE":
-                            college[c].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                college[c].append(tokens[t])
-                                t += 1
-                            if len(college[c]) < 4:
-                                college.pop(c)
-                                break
-                            else:
-                                c += 1
-                                break
+            #     elif "COLLEGE" in lines[i]:
+            #         college.append([])
+            #         tokens = lines[i].split(" ")
+            #         tokens = bug_city(tokens, "COLLEGE")
+            #         t = 0
+            #         for t in range(0, len(tokens)):
+            #             if tokens[t] == "COLLEGE":
+            #                 college[c].append(tokens[t])
+            #                 t += 1
+            #                 while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
+            #                     college[c].append(tokens[t])
+            #                     t += 1
+            #                 if len(college[c]) < 4:
+            #                     college.pop(c)
+            #                     break
+            #                 else:
+            #                     c += 1
+            #                     break
 
             try:
                 for i in range(len(lines)-1, -1, -1):
@@ -673,6 +727,8 @@ def parse_files(file):
 if __name__ == '__main__':
     # Testing for web crawl
     # names = web_crawl('https://www.ou.edu/provost/course-evaluation-data')
+    db_name = sys.argv[1]
+
 
     if len(sys.argv) < 3 or len(sys.argv) > 3:
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
@@ -681,8 +737,8 @@ if __name__ == '__main__':
         pdf_splitter("test/bus201410.pdf", "bus", "201410")
         directory = os.fsencode('test/split/')
         files = os.listdir(directory)
-        for file in files:
-            parse_files(file)
+        for file in files[:1]:
+            pprint.pprint(parse_files(file))
         exit(0)
 
     else:
