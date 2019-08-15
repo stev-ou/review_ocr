@@ -17,6 +17,7 @@ from pymongo import MongoClient, errors
 import pymongo
 from tqdm import tqdm
 import time
+from copy import deepcopy
 from dns.exception import DNSException
 from tika import parser
 
@@ -231,24 +232,28 @@ def parse_files(file):
                 """
                 Separates a textfile into a sequential list of sections as dictated by the separators
                 """
-                
-                if len(separators) == 0:
-                    return section_list
                 front,back = textfile.split(separators.pop(0))
-                section_list.append(front)
+                if front != '':
+                    section_list.append(front)
+                if len(separators) == 0:
+                    section_list.append(back)
+                    return section_list
                 return recursive_separate(back, separators, section_list)
 
             # Find the Question Numbers and use to get the questions
             question_numbers = re.findall(r'( [1-9]{1,2}\. )', Q_text)
 
             # Use the recursive separate to split Q_text into sections
-            Q_sections = recursive_separate(Q_text, question_numbers)
-            return Q_sections
+            Q_sections = recursive_separate(Q_text, deepcopy(question_numbers))
 
+            # Fill out the questions
             questions = {}
-            for qn in question_numbers:
-                questions[qn.strip(' ').strip('.')] = re.find()
-
+            assert len(qs) == len(qn)
+            
+            for qn, qs in zip(question_numbers, Q_sections):
+                print('hit')
+                questions[qn.strip(' ').strip('.')] = re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
+            return questions
             
             ### Parse out the metadata for vars of interest
             
