@@ -60,7 +60,7 @@ def recursive_separate(textfile, separators, section_list = []):
     el = separators.pop(0)
     splits = textfile.split(el)
     front = splits[0]
-    back = ' '.join(splits[1:]).strip()
+    back = el.join(splits[1:]).strip()
     if back == '':
         raise Exception('Separating failed for ' + textfile + ' and ' + el)
     if front != '':
@@ -69,13 +69,6 @@ def recursive_separate(textfile, separators, section_list = []):
         section_list.append(back)
         return section_list
     return recursive_separate(back, separators, section_list)
-
-def f7(seq):
-    """ pulled off Stack overflow; removes duplicates from list while preserving order """
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
-
 ###
 
 def web_crawl(url):
@@ -218,25 +211,6 @@ def parse_files(file):
 
         if f.endswith(".pdf"):
             print("Running: " + f)
-            # dbdict = {}
-            # instructor2 = {}  # In case there is a second/third instructor
-            # instructor3 = {}
-
-            # Can't read from pdfs, so we need to convert each one to a jpg
-            # with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
-            #     img.compression_quality = 99
-            #     img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
-
-            # Now that we have a jpg, we can read it into text -  just a massive wall of text
-            # img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
-            # text = pytesseract.image_to_string(img)
-
-            # Save txt to file to compare
-            # with open('pdfs/txts/Wand/' + f.rstrip(".pdf") + '.txt', 'w') as txtf:
-            #     txtf.write(text)
-
-             # Use Tika to convert text from pdf
-            # directory = 'test/split/'
             raw = parser.from_file(directory + file)
             text_Tika = raw['content']
             lines = text_Tika.splitlines()
@@ -253,29 +227,7 @@ def parse_files(file):
             # Separate out the metadata from from the question information
             meta, Q_text = full_text.split(' College Rank')
 
-            # Separate the question averages from the Response Key
-            Q_text, _ = Q_text.split(' Response Key ')
-
-            # Find the Question Numbers and use to get the questions
-            question_numbers = re.findall(r'( [1-9]{1,2}\. )', Q_text)
-            question_numbers = f7(question_numbers)
-
-            # Use the recursive separate to split Q_text into sections
-            Q_sections = recursive_separate(Q_text, deepcopy(question_numbers), section_list = [])
-            assert len(Q_sections) == len(question_numbers) 
-
-            # Fill out the questions
-            questions = []
-            for qn, qs in zip(question_numbers, Q_sections):
-                Q_dict = {}
-                # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
-                Q_dict['Question Number'] =  qn.strip(' ').strip('.')
-                Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
-                # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
-                Q_dict['Mean'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1]
-                Q_dict['Standard Deviation'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3]
-                # Add in the question ratings to the list
-                questions.append(Q_dict)
+            ## Parse the meta data to find the number of instructors
             # Parse the metadata for fields of interest
             # Should be able to get Term Code and College Code from previous parsing
             # Still need 'Subject Code', 'Course Number', 'Individual Responses', 'Section Title'
@@ -290,23 +242,12 @@ def parse_files(file):
                 meta_sections = recursive_separate(meta, [' Course: ', ' Enrollment: ', ' Section Title: ', ' Course Level: ', ' Instructor: ', ' Section Size: '], section_list = [])
                 # Define meta object to store each of the metadata fields
             # fields = ['Subject Code', 'Course Number', 'Individual Responses', 'Section Title', 'Instructor First Name', 'Instructor Last Name']
-            meta_dict = {}
+            entry_list = []; meta_dict = {} # entry lists will have one meta_dict per instructor found
+            # Fill out the meta dict with info for all instructors
             meta_dict['Subject Code'] = re.findall(r"[A-Z]+", meta_sections[1])[0]
             meta_dict['Course Number'] = int(re.findall(r"[0-9]+", meta_sections[1])[0])
             meta_dict['Individual Responses'] = int(re.findall(r"[0-9]+", meta_sections[2])[0])
             meta_dict['Section Title'] = meta_sections[3].strip(' ') 
-            assert(len(re.findall(r"[0-9]+", meta_sections[5]))==0) # Make sure the name is all non-numeric
-            # Check to see if there are multiple instructors, as indicated by /
-            if Instructors:
-                # Only take the first instructor found; Edge case
-                instr_string = meta_sections[5].split('/')[0].strip()
-            else:
-                instr_string = meta_sections[5].strip()
-            instr_string = ' '.join([i for i in instr_string if i.isalnum() or i==' ']).strip()
-            meta_dict['Instructor First Name'] = instr_string.split()[0]
-            # Associate latter arrays with last name
-            meta_dict['Instructor Last Name'] = ''.join(instr_string.split()[1:]) 
-
             # Get the term and College Code from the filename
             col_header_mapper = dict(map(reversed, header_col_mapper.items()))
             str_file = file.decode('utf-8')
@@ -316,6 +257,58 @@ def parse_files(file):
                 meta_dict['Term Code'] = str_file.strip(col).rstrip('.pdf')
             else:
                 raise Exception(f'The filename {str_file} cannot be parsed to obtain college code and term code')
+                        
+            assert(len(re.findall(r"[0-9]+", meta_sections[5]))==0) # Make sure the name is all non-numeric
+            # Define instructor list for adding instructors to
+            if Instructors:
+                # Get each of the instructor strings into instr_strings
+                instr_strings = []
+                [instr_strings.append(ms.strip()) for ms in meta_sections[5].split('/')]
+            else:
+                instr_strings = [meta_sections[5].strip()]
+            for instr_string in instr_strings:
+                entry_list.append(deepcopy(meta_dict)) # Each entry will have the same metadata; Different instrs
+                instr_string = ' '.join([i for i in instr_string if i.isalnum() or i==' ']).strip()
+                entry_list[-1]['Instructor First Name'] = instr_string.split()[0].strip()
+                # Associate latter arrays with last name
+                entry_list[-1]['Instructor Last Name'] = ' '.join(instr_string.split()[1:]).strip()
+
+            ## Now that we know the number of instructors, we can parse the Question text (Q_text)
+            # Separate the question averages from the Response Key
+            Q_text, _ = Q_text.split(' Response Key ')
+
+            # Find the Question Numbers and use to get the questions
+            question_numbers = re.findall(r'( [1-9]{1,2}\. )', Q_text)
+
+            # Find duplicate elements in the question_numbers list; Duplicate questions indicate multiple instructors
+            Q_dupes = [x for n, x in enumerate(question_numbers) if x in question_numbers[:n]]
+            Q_uniq = [x for n, x in enumerate(question_numbers) if x not in question_numbers[:n] and x not in Q_dupes]
+            # Make sure we have enough questions for all of the instructors
+            assert len(question_numbers)-len(Q_uniq) - len(Q_dupes)*len(entry_list) == 0
+
+            # Use the recursive separate to split Q_text into sections
+            Q_sections = recursive_separate(Q_text, deepcopy(question_numbers), section_list = [])
+            assert len(Q_sections) == len(question_numbers) 
+
+            # Split the question sections up by instructors
+            partitioned_Q_sections = [-1]*len(entry_list) # Need as many sections as entries
+            shared_sections, sections_by_instructor  = Q_sections[:len(Q_uniq)], Q_sections[len(Q_uniq):]
+            for c in range(len(partitioned_Q_sections)):
+                partitioned_Q_sections[c] = shared_sections + sections_by_instructor[c*len(Q_dupes):(c+1)*len(Q_dupes)]
+            assert len(set([len(pQs for pQs in partitioned_Q_sections)])) == 1
+            # Fill out the questions
+            questions = []
+            for qn, qs in zip(question_numbers, Q_sections):
+                Q_dict = {}
+                # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
+                Q_dict['Question Number'] =  qn.strip(' ').strip('.')
+                Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
+                # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
+                Q_dict['Mean'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1]
+                Q_dict['Standard Deviation'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3]
+                # Add in the question ratings to the list
+                questions.append(Q_dict)
+
             # Add the metadata to the individual questions to log them as rows in the table
             for k,v in meta_dict.items():
                 for i in questions:
@@ -368,7 +361,7 @@ if __name__ == '__main__':
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
 
     if sys.argv[2] == "True":
-        pdf_splitter("test/CoAaS201710.pdf", "CoAaS", "201120")
+        pdf_splitter("test/CoA201030.pdf", "CoA", "201030")
         directory = os.fsencode('test/split/')
         files = os.listdir(directory)
         for file in files[:]:
