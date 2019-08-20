@@ -254,7 +254,7 @@ def parse_files(file):
             col = re.findall(r"[A-z]+", str_file)[0]
             if col in col_header_mapper.keys():
                 meta_dict['College Code'] = col
-                meta_dict['Term Code'] = str_file.strip(col).rstrip('.pdf')
+                meta_dict['Term Code'] = str_file[5:10]
             else:
                 raise Exception(f'The filename {str_file} cannot be parsed to obtain college code and term code')
                         
@@ -268,7 +268,7 @@ def parse_files(file):
                 instr_strings = [meta_sections[5].strip()]
             for instr_string in instr_strings:
                 entry_list.append(deepcopy(meta_dict)) # Each entry will have the same metadata; Different instrs
-                instr_string = ' '.join([i for i in instr_string if i.isalnum() or i==' ']).strip()
+                instr_string = ''.join([i for i in instr_string if i.isalnum() or i==' ']).strip()
                 entry_list[-1]['Instructor First Name'] = instr_string.split()[0].strip()
                 # Associate latter arrays with last name
                 entry_list[-1]['Instructor Last Name'] = ' '.join(instr_string.split()[1:]).strip()
@@ -295,38 +295,47 @@ def parse_files(file):
             shared_sections, sections_by_instructor  = Q_sections[:len(Q_uniq)], Q_sections[len(Q_uniq):]
             for c in range(len(partitioned_Q_sections)):
                 partitioned_Q_sections[c] = shared_sections + sections_by_instructor[c*len(Q_dupes):(c+1)*len(Q_dupes)]
-            assert len(set([len(pQs for pQs in partitioned_Q_sections)])) == 1
-            # Fill out the questions
-            questions = []
-            for qn, qs in zip(question_numbers, Q_sections):
-                Q_dict = {}
-                # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
-                Q_dict['Question Number'] =  qn.strip(' ').strip('.')
-                Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
-                # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
-                Q_dict['Mean'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1]
-                Q_dict['Standard Deviation'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3]
-                # Add in the question ratings to the list
-                questions.append(Q_dict)
+            assert len(set([len(pQs) for pQs in partitioned_Q_sections])) == 1 # Ensure all Q sections are same length
+            
+            # We'll parse the questions for each entry in entry_list
+            # Add the final result to db_objects, for writing to file
+            db_objects = []
+            for el_i, entry in enumerate(entry_list):
+                # Fill out the questions
+                questions = []
+                # Zip together the question numbers and the partitioned sections
+                for qn, qs in zip(Q_uniq + Q_dupes, partitioned_Q_sections[el_i]):
+                    Q_dict = {}
+                    # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
+                    Q_dict['Question Number'] =  qn.strip(' ').strip('.')
+                    Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
+                    # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
+                    Q_dict['Mean'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1])
+                    Q_dict['Standard Deviation'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3])
+                    # Ensure we're getting reasonable values for the mean, std
+                    for metric in [Q_dict['Mean'], Q_dict['Standard Deviation']]:
+                        assert (0 <= metric and metric <= 5)
+                    # Add in the question ratings to the list
+                    questions.append(Q_dict)
 
-            # Add the metadata to the individual questions to log them as rows in the table
-            for k,v in meta_dict.items():
+                # Add the metadata to the individual questions to log them as rows in the table
                 for i in questions:
-                    i[k] = v
-            return questions
+                    for k,v in entry.items():
+                        i[k] = v
+                    db_objects.append(i)
 
-            for i in range(0, len(db_objects)):
-                print("Adding " + dbdict["Instructor First Name"] + " " +
-                        dbdict["Instructor Last Name"] + " to " + dbdict["College Code"])
-                #collection.insert_one(db_objects[i])
-                with open(str(current.name) + ".txt", "a+") as ff:
-                    ff.write(str(db_objects[i]) + "\n")  
-                with open("run_files.txt", "a+") as runf:
-                    runf.write(f + "\n")
+        for i in db_objects:
+            print("Adding " + i["Instructor First Name"] + " " +
+                    i["Instructor Last Name"] + " to " + i["College Code"]+i['Term Code'])
+            #collection.insert_one(db_objects[i])
+            with open(str(current.name) + ".txt", "a+") as ff:
+                ff.write(str(i) + "\n")  
+            with open("run_files.txt", "a+") as runf:
+                runf.write(f + "\n")
 
     except ValueError:
         print(ValueError)
-        print('at filename '+ file.decode('utf-8'))
+        print('At filename '+ file.decode('utf-8'))
     # except pymongo.errors.AutoReconnect:
     #     print("sleeping...")
     #     baddata.append(f)
