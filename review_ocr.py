@@ -52,6 +52,32 @@ header_col_mapper = {'College of Architecture': 'CoA',
 'University College': 'UC', 'Center for Independent and Distance Learning': 'CfIaDL', 
 'Expository Writing Program': 'EWP', 'ROTC - Air Force': 'R-AF'}
 
+## Parsing helper functions
+def recursive_separate(textfile, separators, section_list = []):
+    """
+    Separates a textfile into a sequential list of sections as dictated by the separators
+    """
+    el = separators.pop(0)
+    splits = textfile.split(el)
+    front = splits[0]
+    back = ' '.join(splits[1:]).strip()
+    if back == '':
+        raise Exception('Separating failed for ' + textfile + ' and ' + el)
+    if front != '':
+        section_list.append(front)
+    if len(separators) == 0:
+        section_list.append(back)
+        return section_list
+    return recursive_separate(back, separators, section_list)
+
+def f7(seq):
+    """ pulled off Stack overflow; removes duplicates from list while preserving order """
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
+
+###
+
 def web_crawl(url):
     """
     This function will crawl the given url, and download specific pdfs that correspond to the 
@@ -230,28 +256,17 @@ def parse_files(file):
             # Separate the question averages from the Response Key
             Q_text, _ = Q_text.split(' Response Key ')
 
-            def recursive_separate(textfile, separators, section_list = []):
-                """
-                Separates a textfile into a sequential list of sections as dictated by the separators
-                """
-                front,back = textfile.split(separators.pop(0))
-                if front != '':
-                    section_list.append(front)
-                if len(separators) == 0:
-                    section_list.append(back)
-                    return section_list
-                return recursive_separate(back, separators, section_list)
-
             # Find the Question Numbers and use to get the questions
             question_numbers = re.findall(r'( [1-9]{1,2}\. )', Q_text)
+            question_numbers = f7(question_numbers)
 
             # Use the recursive separate to split Q_text into sections
-            Q_sections = recursive_separate(Q_text, deepcopy(question_numbers))
+            Q_sections = recursive_separate(Q_text, deepcopy(question_numbers), section_list = [])
+            print(Q_sections)
+            assert len(Q_sections) == len(question_numbers) 
 
             # Fill out the questions
             questions = []
-            assert len(Q_sections) == len(question_numbers) # Ensure one section for each number
-
             for qn, qs in zip(question_numbers, Q_sections):
                 Q_dict = {}
                 # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
@@ -266,8 +281,16 @@ def parse_files(file):
             # Should be able to get Term Code and College Code from previous parsing
             # Still need 'Subject Code', 'Course Number', 'Individual Responses', 'Section Title'
             # Use keywords to split the metadata into sections
-            meta_sections = recursive_separate(meta, [' Course: ', ' Enrollment: ', ' Section Title: ', ' Course Level: ', ' Instructor: ', ' Section Size: '], section_list = [])
-            # Define meta object to store each of the metadata fields
+            if ' Instructors: ' in meta:
+                Instructors = True
+                # If Instructors: use this keyword
+                meta_sections = recursive_separate(meta, [' Course: ', ' Enrollment: ', ' Section Title: ', ' Course Level: ', ' Instructors: ', ' Section Size: '], section_list = [])
+            else:
+                Instructors = False
+                # If Instructor: , use this keyword
+                meta_sections = recursive_separate(meta, [' Course: ', ' Enrollment: ', ' Section Title: ', ' Course Level: ', ' Instructor: ', ' Section Size: '], section_list = [])
+            print(meta_sections)
+                # Define meta object to store each of the metadata fields
             # fields = ['Subject Code', 'Course Number', 'Individual Responses', 'Section Title', 'Instructor First Name', 'Instructor Last Name']
             meta_dict = {}
             meta_dict['Subject Code'] = re.findall(r"[A-Z]+", meta_sections[1])[0]
@@ -276,11 +299,16 @@ def parse_files(file):
             meta_dict['Section Title'] = meta_sections[3].strip(' ') 
             assert(len(re.findall(r"[0-9]+", meta_sections[5]))==0) # Make sure the name is all non-numeric
             # Check to see if there are multiple instructors, as indicated by /
-            if '/' in meta_sections[5]:
+            print('\n\n')
+            print(meta_sections)
+            print('\n\n')
+            if Instructors:
                 # Only take the first instructor found; Edge case
                 instr_string = meta_sections[5].split('/')[0].strip()
             else:
                 instr_string = meta_sections[5].strip()
+            # instr_string = ''.join([i for i in instr_string if i.isalnum() or i==' '])
+            print(instr_string)
             meta_dict['Instructor First Name'] = instr_string.split()[0]
             # Associate latter arrays with last name
             meta_dict['Instructor Last Name'] = ''.join(instr_string.split()[1:]) 
@@ -709,7 +737,7 @@ if __name__ == '__main__':
         pdf_splitter("test/CoA201120.pdf", "CoA", "201120")
         directory = os.fsencode('test/split/')
         files = os.listdir(directory)
-        for file in files[:1]:
+        for file in files[:]:
             pprint.pprint(parse_files(file))
         exit(0)
 
