@@ -181,19 +181,20 @@ def parse_files(file):
     """
     This function extracts the text from a single page pdf file, then parses the text to fit into a defined schema.
     """
-    try:
+    # try:
+    for pkl in ['nope']:
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
 
-        # This file SUCKS!!!!
-        if f == "349ints201710.pdf":
-            return
+        # # This file SUCKS!!!!
+        # if f == "349ints201710.pdf":
+        #     return
 
         if f.endswith(".pdf"):
             print("Running: " + f)
-            dbdict = {}
-            instructor2 = {}  # In case there is a second/third instructor
-            instructor3 = {}
+            # dbdict = {}
+            # instructor2 = {}  # In case there is a second/third instructor
+            # instructor3 = {}
 
             # Can't read from pdfs, so we need to convert each one to a jpg
             # with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
@@ -216,6 +217,7 @@ def parse_files(file):
             # Save the txt file to compare
             with open('pdfs/txts/' + f.rstrip(".pdf")+ '.txt', 'w') as txtf:
                 txtf.write(raw['content'])
+
             # Drop out the empty lines
             lines= [i for i in lines if i != '']
 
@@ -247,44 +249,88 @@ def parse_files(file):
             Q_sections = recursive_separate(Q_text, deepcopy(question_numbers))
 
             # Fill out the questions
-            questions = {}
-            assert len(qs) == len(qn)
-            
+            questions = []
+            assert len(Q_sections) == len(question_numbers) # Ensure one section for each number
+
             for qn, qs in zip(question_numbers, Q_sections):
-                print('hit')
-                questions[qn.strip(' ').strip('.')] = re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
+                Q_dict = {}
+                # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
+                Q_dict['Question Number'] =  qn.strip(' ').strip('.')
+                Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
+                # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
+                Q_dict['Mean'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1]
+                Q_dict['Standard Deviation'] = qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3]
+                # Add in the question ratings to the list
+                questions.append(Q_dict)
+            # Parse the metadata for fields of interest
+            # Should be able to get Term Code and College Code from previous parsing
+            # Still need 'Subject Code', 'Course Number', 'Individual Responses', 'Section Title'
+            # Use keywords to split the metadata into sections
+            meta_sections = recursive_separate(meta, [' Course: ', ' Enrollment: ', ' Section Title: ', ' Course Level: ', ' Instructor: ', ' Section Size: '], section_list = [])
+            # Define meta object to store each of the metadata fields
+            # fields = ['Subject Code', 'Course Number', 'Individual Responses', 'Section Title', 'Instructor First Name', 'Instructor Last Name']
+            meta_dict = {}
+            meta_dict['Subject Code'] = re.findall(r"[A-Z]+", meta_sections[1])[0]
+            meta_dict['Course Number'] = int(re.findall(r"[0-9]+", meta_sections[1])[0])
+            meta_dict['Individual Responses'] = int(re.findall(r"[0-9]+", meta_sections[2])[0])
+            meta_dict['Section Title'] = meta_sections[3].strip(' ') 
+            assert(len(re.findall(r"[0-9]+", meta_sections[5]))==0) # Make sure the name is all non-numeric
+            # Check to see if there are multiple instructors, as indicated by /
+            if '/' in meta_sections[5]:
+                # Only take the first instructor found; Edge case
+                instr_string = meta_sections[5].split('/')[0].strip()
+            else:
+                instr_string = meta_sections[5].strip()
+            meta_dict['Instructor First Name'] = instr_string.split()[0]
+            # Associate latter arrays with last name
+            meta_dict['Instructor Last Name'] = ''.join(instr_string.split()[1:]) 
+
+            # Get the term and College Code from the filename
+            col_header_mapper = dict(map(reversed, header_col_mapper.items()))
+            str_file = file.decode('utf-8')
+            col = re.findall(r"[A-z]+", str_file)[0]
+            print(col)
+            if col in col_header_mapper.keys():
+                meta_dict['College Code'] = col
+                meta_dict['Term Code'] = str_file.strip(col).rstrip('.pdf')
+            else:
+                raise Exception(f'The filename {str_file} cannot be parsed to obtain college code and term code')
+            # Add the metadata to the individual questions to log them as rows in the table
+            for k,v in meta_dict.items():
+                for i in questions:
+                    i[k] = v
             return questions
             
-            ### Parse out the metadata for vars of interest
+            # ### Parse out the metadata for vars of interest
             
-            ### Parse the question numbers using regex
+            # ### Parse the question numbers using regex
             
-            sections = []
+            # sections = []
         
 
-            # # Use the separator to split textfile into sections for parsing 
-            # separators = [' College Rank ', ]
+            # # # Use the separator to split textfile into sections for parsing 
+            # # separators = [' College Rank ', ]
 
 
 
 
 
-            text_by_section = []
-            return lines
-            # list of the dbdictionaries that will be added to the DataBase
-            db_objects = []
+            # text_by_section = []
+            # return lines
+            # # list of the dbdictionaries that will be added to the DataBase
+            # db_objects = []
 
-            # lines = text.splitlines()
-            IDCSObj = {"INDIVIDUAL":{'count':0, 'ratings':[]}, "DEPARTMENT":{'count':0, 'ratings':[]},
-                "SIMILAR":{'count':0, 'ratings':[]}, "COLLEGE":{'count':0, 'ratings':[]}}
-            college = []
-            similar = []
-            n, d, c, s = 0, 0, 0, 0
+            # # lines = text.splitlines()
+            # IDCSObj = {"INDIVIDUAL":{'count':0, 'ratings':[]}, "DEPARTMENT":{'count':0, 'ratings':[]},
+            #     "SIMILAR":{'count':0, 'ratings':[]}, "COLLEGE":{'count':0, 'ratings':[]}}
+            # college = []
+            # similar = []
+            # n, d, c, s = 0, 0, 0, 0
 
-            # Store only the necessary line information, since sometimes lines are mixed together
-            # for i in range(len(lines)):
-            #     for q_keyword in IDSCObj:
-            #         if q_keyword in lines[i]:
+            # # Store only the necessary line information, since sometimes lines are mixed together
+            # # for i in range(len(lines)):
+            # #     for q_keyword in IDSCObj:
+            # #         if q_keyword in lines[i]:
             #     if "INDIVIDUAL" in lines[i]:
             #         IDSC[]
             #         tokens = lines[i].split(" ")
@@ -361,372 +407,293 @@ def parse_files(file):
             #                     c += 1
             #                     break
 
-            try:
-                for i in range(len(lines)-1, -1, -1):
-                    tokens = lines[i].split(" ")
-                    debug = "Question"
-                    for q in FIND_Q:
-                        if q in lines[i]:
-                            """
-                            # This is to handle wrapping text
-                            if i+1 < len(lines) and len(lines[i+1]) >= 2:
-                                    lines[i] += " " + lines[i+1]
-                            """
-                            # Make sure this question has not already been added, iterate through whole list
-                            added = False
-                            for obj in db_objects:
-                                if int(tokens[0].strip('.')) in obj.values():
-                                    added = True
-                                    break
-                            if added == False:
-                                #db_objects.append({"Question": lines[i][3:].lstrip(" "), "Question Number": int(tokens[0].strip('.'))})
-                                try:
-                                    db_objects.append(
-                                        {"Question Number": int(tokens[0].strip('.'))})
-                                except ValueError:
-                                    print("============================================================================================================")
-                                    print("Bad Parse!! OCR could not read Questions " + f)
-                                    collection_name = "bad_data"
-                                    baddata.append(f)
-                                    with open("baddata.txt", "a+") as ff:
-                                        ff.write(f + "\n")
-                                    print("============================================================================================================")
-                        else:
-                            continue
+            # try:
+            #     for i in range(len(lines)-1, -1, -1):
+            #         tokens = lines[i].split(" ")
+            #         debug = "Question"
+            #         for q in FIND_Q:
+            #             if q in lines[i]:
+            #                 """
+            #                 # This is to handle wrapping text
+            #                 if i+1 < len(lines) and len(lines[i+1]) >= 2:
+            #                         lines[i] += " " + lines[i+1]
+            #                 """
+            #                 # Make sure this question has not already been added, iterate through whole list
+            #                 added = False
+            #                 for obj in db_objects:
+            #                     if int(tokens[0].strip('.')) in obj.values():
+            #                         added = True
+            #                         break
+            #                 if added == False:
+            #                     #db_objects.append({"Question": lines[i][3:].lstrip(" "), "Question Number": int(tokens[0].strip('.'))})
+            #                     try:
+            #                         db_objects.append(
+            #                             {"Question Number": int(tokens[0].strip('.'))})
+            #                     except ValueError:
+            #                         print("============================================================================================================")
+            #                         print("Bad Parse!! OCR could not read Questions " + f)
+            #                         collection_name = "bad_data"
+            #                         baddata.append(f)
+            #                         with open("baddata.txt", "a+") as ff:
+            #                             ff.write(f + "\n")
+            #                         print("============================================================================================================")
+            #             else:
+            #                 continue
 
-                # x is to keep track of which db object we are adding data to
-                x = len(db_objects)-1
-                y = 0
-                #IDSC BLOCK
-                while x > -1 and y < len(ind):
-                    try:
-                        debug = "INDIVIDUAL"
-                        db_objects[x]["Mean"] = float(ind[y][1])
+            #     # x is to keep track of which db object we are adding data to
+            #     x = len(db_objects)-1
+            #     y = 0
+            #     #IDSC BLOCK
+            #     while x > -1 and y < len(ind):
+            #         try:
+            #             debug = "INDIVIDUAL"
+            #             db_objects[x]["Mean"] = float(ind[y][1])
 
-                        # Sometimes theres no median for no apparent reason :)
-                        try:
-                            db_objects[x]["Median"] = int(ind[y][2])
-                        except ValueError:
-                            db_objects[x]["Median"] = -1
+            #             # Sometimes theres no median for no apparent reason :)
+            #             try:
+            #                 db_objects[x]["Median"] = int(ind[y][2])
+            #             except ValueError:
+            #                 db_objects[x]["Median"] = -1
 
-                        db_objects[x]["Standard Deviation"] = float(ind[y][3])
-                        db_objects[x]["Percent Rank - Department"] = float(
-                            ind[y][-2])
-                        db_objects[x]["Percent Rank - College"] = float(ind[y][-1])
+            #             db_objects[x]["Standard Deviation"] = float(ind[y][3])
+            #             db_objects[x]["Percent Rank - Department"] = float(
+            #                 ind[y][-2])
+            #             db_objects[x]["Percent Rank - College"] = float(ind[y][-1])
 
-                        debug = "DEPARTMENT"
-                        db_objects[x]["Department Mean"] = float(dept[y][1])
-                        db_objects[x]["Department Median"] = int(dept[y][2])
-                        db_objects[x]["Department Standard Deviation"] = float(
-                            dept[y][3])
+            #             debug = "DEPARTMENT"
+            #             db_objects[x]["Department Mean"] = float(dept[y][1])
+            #             db_objects[x]["Department Median"] = int(dept[y][2])
+            #             db_objects[x]["Department Standard Deviation"] = float(
+            #                 dept[y][3])
 
-                        if y < len(similar) and similar[y]:
-                            debug = "SIMILAR"
-                            db_objects[x]["Similar College Mean"] = float(
-                                similar[y][1])
-                            db_objects[x]["Similar College Median"] = int(
-                                similar[y][2])
+            #             if y < len(similar) and similar[y]:
+            #                 debug = "SIMILAR"
+            #                 db_objects[x]["Similar College Mean"] = float(
+            #                     similar[y][1])
+            #                 db_objects[x]["Similar College Median"] = int(
+            #                     similar[y][2])
 
-                        debug = "COLLEGE"
-                        db_objects[x]["College Mean"] = float(college[y][1])
-                        db_objects[x]["College Median"] = int(college[y][2])
-                        x -= 1
-                        y += 1
+            #             debug = "COLLEGE"
+            #             db_objects[x]["College Mean"] = float(college[y][1])
+            #             db_objects[x]["College Median"] = int(college[y][2])
+            #             x -= 1
+            #             y += 1
 
-                    except ValueError:
-                        print("==========================================================================================")
-                        print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
-                        err = [ind, dept, college, similar]
-                        print(err)
-                        print(debug + str(y))
-                        collection_name = "bad_data"
-                        baddata.append(f)
-                        with open("baddata.txt", "a+") as ff:
-                            ff.write(f + "\n")
-                        print("==========================================================================================")
-                        break
+            #         except ValueError:
+            #             print("==========================================================================================")
+            #             print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
+            #             err = [ind, dept, college, similar]
+            #             print(err)
+            #             print(debug + str(y))
+            #             collection_name = "bad_data"
+            #             baddata.append(f)
+            #             with open("baddata.txt", "a+") as ff:
+            #                 ff.write(f + "\n")
+            #             print("==========================================================================================")
+            #             break
 
-                    except IndexError:
-                        print("==========================================================================================")
-                        print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
-                        err = [ind, dept, college, similar]
-                        print(err)
-                        print(debug + str(y))
-                        collection_name = "bad_data"
-                        baddata.append(f)
-                        with open("baddata.txt", "a+") as ff:
-                            ff.write(f + "\n")
-                        print("==========================================================================================")
-                        break
+            #         except IndexError:
+            #             print("==========================================================================================")
+            #             print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
+            #             err = [ind, dept, college, similar]
+            #             print(err)
+            #             print(debug + str(y))
+            #             collection_name = "bad_data"
+            #             baddata.append(f)
+            #             with open("baddata.txt", "a+") as ff:
+            #                 ff.write(f + "\n")
+            #             print("==========================================================================================")
+            #             break
 
-                # Need to iterate twice bc sometimes it reads out of order
-                i = 0
+            #     # Need to iterate twice bc sometimes it reads out of order
+            #     i = 0
 
-                while i < len(lines_Tika):
-                    if "College of" in lines_Tika[i]:
-                        tokens = lines[i].split(" ")
-                        debug = "College of"
-                        if tokens[2] == "Business":
-                            dbdict["College Code"] = "BUS"
+            #     while i < len(lines_Tika):
+            #         if "College of" in lines_Tika[i]:
+            #             tokens = lines[i].split(" ")
+            #             debug = "College of"
+            #             if tokens[2] == "Business":
+            #                 dbdict["College Code"] = "BUS"
 
-                        elif tokens[2] == "Architecture":
-                            dbdict["College Code"] = "ARC"
+            #             elif tokens[2] == "Architecture":
+            #                 dbdict["College Code"] = "ARC"
 
-                        elif tokens[2] == "Arts":
-                            dbdict["College Code"] = "ARTSN"
+            #             elif tokens[2] == "Arts":
+            #                 dbdict["College Code"] = "ARTSN"
 
-                        elif tokens[2] == "Atmospheric":
-                            dbdict["College Code"] = "GEO"
+            #             elif tokens[2] == "Atmospheric":
+            #                 dbdict["College Code"] = "GEO"
 
-                        # Aviation
+            #             # Aviation
 
-                        elif tokens[2] == "Earth":
-                            dbdict["College Code"] = "NRG"
+            #             elif tokens[2] == "Earth":
+            #                 dbdict["College Code"] = "NRG"
 
-                        elif tokens[2] == "Education":
-                            dbdict["College Code"] = "EDU"
+            #             elif tokens[2] == "Education":
+            #                 dbdict["College Code"] = "EDU"
 
-                        elif tokens[2] == "Engineering":
-                            dbdict["College Code"] = "ENGR"
+            #             elif tokens[2] == "Engineering":
+            #                 dbdict["College Code"] = "ENGR"
 
-                        elif tokens[2] == "Fine":
-                            dbdict["College Code"] = "FARTS"  # haha
+            #             elif tokens[2] == "Fine":
+            #                 dbdict["College Code"] = "FARTS"  # haha
 
-                        # Honors College
+            #             # Honors College
 
-                        elif tokens[2] == "International":
-                            dbdict["College Code"] = "INTS"
+            #             elif tokens[2] == "International":
+            #                 dbdict["College Code"] = "INTS"
 
-                        elif tokens[2] == "Journalism":
-                            dbdict["College Code"] = "JRNL"
+            #             elif tokens[2] == "Journalism":
+            #                 dbdict["College Code"] = "JRNL"
 
-                        elif tokens[2] == "Professional":
-                            dbdict["College Code"] = "PROF"
+            #             elif tokens[2] == "Professional":
+            #                 dbdict["College Code"] = "PROF"
 
-                        # University College
+            #             # University College
 
-                        # Center for Independent and Distant Learning
+            #             # Center for Independent and Distant Learning
 
-                        # Expository Writing
+            #             # Expository Writing
 
-                        # ROTC
+            #             # ROTC
 
-                    elif "Total Enrollment" in lines[i]:
-                        tokens = lines[i].split(" ")
-                        debug = "Total Enrollment"
-                        for n in range(0, len(tokens)):
-                            if 'Enrollment' in tokens[n]:
-                                dbdict["Instructor Enrollment"] = int(tokens[n+1])
+            #         elif "Total Enrollment" in lines[i]:
+            #             tokens = lines[i].split(" ")
+            #             debug = "Total Enrollment"
+            #             for n in range(0, len(tokens)):
+            #                 if 'Enrollment' in tokens[n]:
+            #                     dbdict["Instructor Enrollment"] = int(tokens[n+1])
 
-                    if "Course:" in lines[i]:
-                        tokens = lines[i].split(" ")
-                        debug = "Course:"
-                        dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
-                        dbdict["Subject Code"] = tokens[1]
+            #         if "Course:" in lines[i]:
+            #             tokens = lines[i].split(" ")
+            #             debug = "Course:"
+            #             dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
+            #             dbdict["Subject Code"] = tokens[1]
 
-                        # Some Subject Codes are separated by spaces
-                        try:
-                            dbdict["Course Number"] = int(tokens[2][:4])
-                            dbdict["Section Number"] = int(tokens[2][-3:])
-                        except ValueError:
-                            dbdict["Subject Code"] += tokens[2]
-                            dbdict["Course Number"] = int(tokens[3][:4])
-                            dbdict["Section Number"] = int(tokens[3][-3:])
+            #             # Some Subject Codes are separated by spaces
+            #             try:
+            #                 dbdict["Course Number"] = int(tokens[2][:4])
+            #                 dbdict["Section Number"] = int(tokens[2][-3:])
+            #             except ValueError:
+            #                 dbdict["Subject Code"] += tokens[2]
+            #                 dbdict["Course Number"] = int(tokens[3][:4])
+            #                 dbdict["Section Number"] = int(tokens[3][-3:])
 
-                    elif "Instructors:" in lines[i] or "instructors:" in lines[i]:
-                        print(lines[i])
-                        debug = "Instructors:"
-                        tokens = lines[i].split(" ")
-                        dbdict["Instructor First Name"] = tokens[1].title()
-                        dbdict["Instructor Last Name"] = tokens[2].title()
-                        instructor2["Instructor First Name"] = tokens[4].title()
-                        instructor2["Instructor Last Name"] = tokens[5].title()
-                        if len(tokens) > 6:
-                            if tokens[6] == "/":
-                                instructor3["Instructor First Name"] = tokens[7].title()
-                                instructor3["Instructor Last Name"] = tokens[8].title()
+            #         elif "Instructors:" in lines[i] or "instructors:" in lines[i]:
+            #             print(lines[i])
+            #             debug = "Instructors:"
+            #             tokens = lines[i].split(" ")
+            #             dbdict["Instructor First Name"] = tokens[1].title()
+            #             dbdict["Instructor Last Name"] = tokens[2].title()
+            #             instructor2["Instructor First Name"] = tokens[4].title()
+            #             instructor2["Instructor Last Name"] = tokens[5].title()
+            #             if len(tokens) > 6:
+            #                 if tokens[6] == "/":
+            #                     instructor3["Instructor First Name"] = tokens[7].title()
+            #                     instructor3["Instructor Last Name"] = tokens[8].title()
 
-                    elif "Instructor:" in lines[i] or "instructor:" in lines[i]:
-                        print(lines[i])
-                        debug = "Instructor:"
-                        tokens = lines[i].split(" ")
-                        dbdict["Instructor First Name"] = tokens[1].title()
-                        dbdict["Instructor Last Name"] = tokens[2].title()
-                        if len(tokens) > 3:
-                            dbdict["Instructor Last Name"] += tokens[3].title()
+            #         elif "Instructor:" in lines[i] or "instructor:" in lines[i]:
+            #             print(lines[i])
+            #             debug = "Instructor:"
+            #             tokens = lines[i].split(" ")
+            #             dbdict["Instructor First Name"] = tokens[1].title()
+            #             dbdict["Instructor Last Name"] = tokens[2].title()
+            #             if len(tokens) > 3:
+            #                 dbdict["Instructor Last Name"] += tokens[3].title()
 
-                    elif "Section Title" in lines[i]:
-                        debug = "Section Title"
-                        dbdict["Section Title"] = lines[i][15:]
+            #         elif "Section Title" in lines[i]:
+            #             debug = "Section Title"
+            #             dbdict["Section Title"] = lines[i][15:]
 
-                    i += 1
+            #         i += 1
 
-                # find if we are testing or not, use appropriate collection
-                """
-                if sys.argv[2] == "True":
-                    collection_name = "test_joe"
-                else:
-                    try:
-                        collection_name = dbdict["College Code"].upper()
-                        collection = db[collection_name]
-                    except KeyError:
-                        collection_name = "bad_data"
-                        collection = db[collection_name]
-                """
+            #     # find if we are testing or not, use appropriate collection
+            #     """
+            #     if sys.argv[2] == "True":
+            #         collection_name = "test_joe"
+            #     else:
+            #         try:
+            #             collection_name = dbdict["College Code"].upper()
+            #             collection = db[collection_name]
+            #         except KeyError:
+            #             collection_name = "bad_data"
+            #             collection = db[collection_name]
+            #     """
 
-            except ValueError:
-                print("============================================================================================================")
-                print("Bad Data Here!! May have to manually input!! " + f)
-                print(tokens)
-                print(debug)
-                baddata.append(f + "\n")
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f)
+            # except ValueError:
+            #     print("============================================================================================================")
+            #     print("Bad Data Here!! May have to manually input!! " + f)
+            #     print(tokens)
+            #     print(debug)
+            #     baddata.append(f + "\n")
+            #     with open("baddata.txt", "a+") as ff:
+            #         ff.write(f)
 
-                print("============================================================================================================")
+            #     print("============================================================================================================")
 
-            except IndexError:
-                print("============================================================================================================")
-                print("Bad Data Here!! May have to manually input!! " + f)
-                print(tokens)
-                print(debug)
-                baddata.append(f)
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f + "\n")
+            # except IndexError:
+            #     print("============================================================================================================")
+            #     print("Bad Data Here!! May have to manually input!! " + f)
+            #     print(tokens)
+            #     print(debug)
+            #     baddata.append(f)
+            #     with open("baddata.txt", "a+") as ff:
+            #         ff.write(f + "\n")
 
-                print("============================================================================================================")
+            #     print("============================================================================================================")
 
-            except KeyError as e:
-                print("============================================================================================================")
-                print("Bad Data Here!! May have to manually input!! " + f)
-                print(e)
-                print(tokens)
-                print(debug)
-                baddata.append(f)
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f + "\n")
-                print("============================================================================================================")
-
-            try:
-
-                for i in range(0, len(db_objects)):
-                    db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
-                    db_objects[i]["College Code"] = dbdict["College Code"]
-                    db_objects[i]["Subject Code"] = dbdict["Subject Code"]
-                    db_objects[i]["Course Number"] = dbdict["Course Number"]
-                    db_objects[i]["Section Number"] = dbdict["Section Number"]
-                    db_objects[i]["Section Title"] = dbdict["Section Title"]
-                    db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
-                    db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
-                    """
-                    find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                                   'Instructor Last Name': dbdict["Instructor Last Name"]})
-                    # If this professor already has an ID
-                    if find_id != None:
-                        db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                    
-                    # Else just use python's hash function to make one for them, should be sufficiently unique
-                    else:
-                    """
-                    db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                    print("Adding " + dbdict["Instructor First Name"] + " " +
-                          dbdict["Instructor Last Name"] + " to " + dbdict["College Code"])
-                    #collection.insert_one(db_objects[i])
-                    with open(str(current.name) + ".txt", "a+") as ff:
-                        ff.write(str(db_objects[i]) + "\n")
+            # except KeyError as e:
+            #     print("============================================================================================================")
+            #     print("Bad Data Here!! May have to manually input!! " + f)
+            #     print(e)
+            #     print(tokens)
+            #     print(debug)
+            #     baddata.append(f)
+            #     with open("baddata.txt", "a+") as ff:
+            #         ff.write(f + "\n")
+            #     print("============================================================================================================")
+            for i in range(0, len(db_objects)):
+                # db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
+                # db_objects[i]["College Code"] = dbdict["College Code"]
+                # db_objects[i]["Subject Code"] = dbdict["Subject Code"]
+                # db_objects[i]["Course Number"] = dbdict["Course Number"]
+                # db_objects[i]["Section Number"] = dbdict["Section Number"]
+                # db_objects[i]["Section Title"] = dbdict["Section Title"]
+                # db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
+                # db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
+                # db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
+                print("Adding " + dbdict["Instructor First Name"] + " " +
+                        dbdict["Instructor Last Name"] + " to " + dbdict["College Code"])
+                #collection.insert_one(db_objects[i])
+                with open(str(current.name) + ".txt", "a+") as ff:
+                    ff.write(str(db_objects[i]) + "\n")  
+                with open("run_files.txt", "a+") as runf:
+                    runf.write(f + "\n")
 
 
-                # If there is an Instructor 2, just change the name and ID
-                if instructor2:
-                    for i in range(0, len(db_objects)):
-                        # Instructor ID
-                        db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
-                        db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
-                        # Needed so that we arent trying to add a duplicate object_id
-                        db_objects[i].pop('_id', None)
+    # except pymongo.errors.AutoReconnect:
+    #     print("sleeping...")
+    #     baddata.append(f)
+    #     with open("baddata.txt", "a+") as ff:
+    #         ff.write(f + "\n")
+    #     time.sleep(300)
+    #     return
 
-                        """
-                        find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                                       'Instructor Last Name': dbdict["Instructor Last Name"]})
-                        # If this professor already has an ID
-                        if find_id != None:
-                            db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                        
-
-                        # Else just use python's hash function to make one for them, should be sufficiently unique
-                        else:
-                        """
-                        db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                        print("Adding " + instructor2["Instructor First Name"] + " " +
-                              instructor2["Instructor Last Name"] + " to " + dbdict["College Code"])
-
-                        #collection.insert_one(db_objects[i])
-
-                        with open(str(current.name) + ".txt", "a+") as ff:
-                            ff.write(str(db_objects[i]) + "\n")
-
-                # If there is an Instructor 2, just change the name and ID
-                if instructor3:
-                    for i in range(0, len(db_objects)):
-                        # Instructor ID
-                        db_objects[i]["Instructor First Name"] = instructor3["Instructor First Name"]
-                        db_objects[i]["Instructor Last Name"] = instructor3["Instructor Last Name"]
-                        # Needed so that we arent trying to add a duplicate object_id
-                        db_objects[i].pop('_id', None)
-
-                        """
-                        find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                                       'Instructor Last Name': dbdict["Instructor Last Name"]})
-                        # If this professor already has an ID
-                        if find_id != None:
-                            db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                        
-
-                        # Else just use python's hash function to make one for them, should be sufficiently unique
-                        else:
-                        """
-                        db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                        print("Adding " + instructor3["Instructor First Name"] + " " +
-                              instructor3["Instructor Last Name"] + " to " + dbdict["College Code"])
-
-                        #collection.insert_one(db_objects[i])
-
-                        with open(str(current.name) + ".txt", "a+") as ff:
-                            ff.write(str(db_objects[i]) + "\n")
-
-            except KeyError:
-                print("============================================================================================================")
-                print("Could Not Add to DB!! OCR likely read in a strange manner... See what field we are missing from " + f)
-                print(db_objects[i])
-                baddata.append(f)
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f + "\n")
-                print("============================================================================================================")
-
-
-        with open("run_files.txt", "a+") as runf:
-            runf.write(f + "\n")
-
-        file_name = os.fsencode("pdfs/jpgs/" + f.rstrip(".pdf") + ".jpg")
-        # os.remove(file_name)
-
-        return
-
-    except pymongo.errors.AutoReconnect:
-        print("sleeping...")
-        baddata.append(f)
-        with open("baddata.txt", "a+") as ff:
-            ff.write(f + "\n")
-        time.sleep(300)
-        return
-
-    except DNSException:
-        print("DNS Timeout... sleeping for a bit...")
-        baddata.append(f)
-        with open("baddata.txt", "a+") as ff:
-            ff.write(f + "\n")
-        time.sleep(300)
-        return
+    # except DNSException:
+    #     print("DNS Timeout... sleeping for a bit...")
+    #     baddata.append(f)
+    #     with open("baddata.txt", "a+") as ff:
+    #         ff.write(f + "\n")
+    #     time.sleep(300)
+    #     return
+    # except Exception:
+    #     print("DNS Timeout... sleeping for a bit...")
+    #     baddata.append(f)
+    #     with open("baddata.txt", "a+") as ff:
+    #         ff.write(f + "\n")
+    #     time.sleep(300)
+    #     return
+    return
             
 
 if __name__ == '__main__':
@@ -739,7 +706,7 @@ if __name__ == '__main__':
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
 
     if sys.argv[2] == "True":
-        pdf_splitter("test/bus201410.pdf", "bus", "201410")
+        pdf_splitter("test/CoA201120.pdf", "CoA", "201120")
         directory = os.fsencode('test/split/')
         files = os.listdir(directory)
         for file in files[:1]:
@@ -772,5 +739,4 @@ if __name__ == '__main__':
         exit(0)
         with Pool(processes=4) as pool:
             r = list(pool.imap(parse_files, files))
-    
         exit(0)
