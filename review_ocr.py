@@ -365,7 +365,6 @@ if __name__ == '__main__':
     # names = web_crawl('https://www.ou.edu/provost/course-evaluation-data')
     db_name = sys.argv[1]
 
-
     if len(sys.argv) < 3 or len(sys.argv) > 3:
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
 
