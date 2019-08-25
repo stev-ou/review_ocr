@@ -19,10 +19,6 @@ from tika import parser
 CURRENT_YEARS = ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
 
-BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——']
-BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5,
-             "iD": 5, "iD)": 5, "S": 5, "a": 5
-
 # These map the headers in the college to the short names in the db
 header_col_mapper = {'College of Architecture': 'CoA', 
 'College of Arts and Sciences': 'CoAaS', 
@@ -300,9 +296,6 @@ def parse_files(file):
         print(f'{name} at filename '+ file.decode('utf-8'))           
 
 if __name__ == '__main__':
-    # Testing for web crawl
-    # names = web_crawl('https://www.ou.edu/provost/course-evaluation-data')
-    db_name = sys.argv[1]
 
     if len(sys.argv) < 3 or len(sys.argv) > 3:
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
@@ -312,7 +305,6 @@ if __name__ == '__main__':
         directory = os.fsencode('test/split/')
         files = os.listdir(directory)
         for file in files[:]:
-            # pprint.pprint(parse_files(file))
             _ = parse_files(file)
         exit(0)
 
@@ -332,12 +324,11 @@ if __name__ == '__main__':
         #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
         directory = os.fsencode('pdfs/split/')
         files = os.listdir(directory)
-        # parse_files(directory)
         print("Parsing the split pdfs... \n")
         CPUS = os.cpu_count()
         print("Number of CPU's detected: {}".format(CPUS))
         print("Running with {} processes".format(CPUS//2))
-        with Pool(processes=CPUS//2) as pool:
+        with Pool(processes=4) as pool:
             r = list(pool.imap(parse_files, files))
         
         # Build evaluation metric for parsing effectiveness

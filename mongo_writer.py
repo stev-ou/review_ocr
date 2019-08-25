@@ -1,10 +1,10 @@
 import os
+import sys
 from tqdm import tqdm
 from pymongo import MongoClient
 
 # Define the ocr_db to write to in Mongo
-db = client["ocr-db-v1"]
-
+db = client[str(sys.argv[1])]
 
 def mongo_writer(file):
 	with open (file, "r") as f:
@@ -13,13 +13,10 @@ def mongo_writer(file):
 
 	for line in tqdm(lines):
 		obj = eval(line)
-
-		collection_name = obj["College Code"].upper()
+		# Collections are named by College Code
+		collection_name = obj["College Code"]
 		collection = db[collection_name]
-
 		collection.insert_one(obj)
-
-
 
 if __name__ == '__main__':
 

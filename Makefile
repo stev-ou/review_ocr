@@ -10,7 +10,8 @@ endif
 	python3 review_ocr.py test_db True
 
 run: clean init
-	python3 review_ocr.py ocr_db_v1 False	
+	python3 review_ocr.py ocr_db_v1 False
+	python3 mongo_writer.py ocr_db_v1	
 
 clean:
 ifeq (,$(wildcard ./pdfs/))
