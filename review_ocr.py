@@ -16,20 +16,12 @@ from copy import deepcopy
 from dns.exception import DNSException
 from tika import parser
 
-debug = ""
-
 CURRENT_YEARS = ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
 
 BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——']
 BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5,
-             "iD": 5, "iD)": 5, "S": 5, "a": 5}
-FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
-          "11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. ", "20. ",
-          "21. ", "22. ", "23. ", "24. ", "25. ", "26. ", "27. ", "28. ", "29. ", "30. ",
-          "31. ", "32. ", "33. ", "34. ", "35. ", "36. ", "37. ", "38. ", "39. ", "40. ",
-          ]
-baddata = []
+             "iD": 5, "iD)": 5, "S": 5, "a": 5
 
 # These map the headers in the college to the short names in the db
 header_col_mapper = {'College of Architecture': 'CoA', 
@@ -49,7 +41,9 @@ header_col_mapper = {'College of Architecture': 'CoA',
 
 # Create parsing errors to use
 class ParsingError(Exception):
-    pass
+    def __init__(self,  message):
+        super().__init__(message)
+        self.__name__ = 'ParsingError'
 
 ## Parsing helper function
 def recursive_separate(textfile, separators, section_list = []):
@@ -294,34 +288,16 @@ def parse_files(file):
                 ff.write(str(i) + "\n")  
             with open("successful_tests.txt", "a+") as runf:
                 runf.write(f + "\n")
-
-    except ValueError:
-        print(ValueError)
+    
+    # Handle all of our potential errors:
+    except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
+        if hasattr(Error, '__name__'):
+            name = Error.__name__
+        else:
+            name = 'AssertionError'
         with open("failed_tests.txt", "a+") as fail:
-            fail.write(file.decode('utf-8') + "\n")
-        print('ValueError at filename '+ file.decode('utf-8'))
-
-    except ParsingError:
-        print(ParsingError)
-        with open("failed_tests.txt", "a+") as fail:
-            fail.write(file.decode('utf-8') + "\n")
-        print('ParsingError at filename '+ file.decode('utf-8'))
-
-    # except DNSException:
-    #     print("DNS Timeout... sleeping for a bit...")
-    #     baddata.append(f)
-    #     with open("baddata.txt", "a+") as ff:
-    #         ff.write(f + "\n")
-    #     time.sleep(300)
-    #     return
-    # except Exception:
-    #     baddata.append(f)
-    #     with open("baddata.txt", "a+") as ff:
-    #         ff.write(f + "\n")
-    #     time.sleep(300)
-    #     return
-    # return
-            
+            fail.write(file.decode('utf-8') + f": Failed due to {name}\n")
+        print(f'{name} at filename '+ file.decode('utf-8'))           
 
 if __name__ == '__main__':
     # Testing for web crawl
