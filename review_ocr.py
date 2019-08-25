@@ -309,19 +309,20 @@ if __name__ == '__main__':
         exit(0)
 
     else:
-        # print("Crawling the OU website...")
+        print("Crawling the OU website...")
  
-        # url = "http://www.ou.edu/provost/course-evaluation-data"
+        url = "http://www.ou.edu/provost/course-evaluation-data"
  
-        # names = web_crawl(url)
-        # print('\n\n')
-        # print(names)
-        # print('\n\n')
+        names = web_crawl(url)
+        print('\n\n')
+        print(names)
+        print('\n\n')
 
-        # print("Splitting PDFs... \n")
-        # for name in names:
-        #     print("Splitting: " + name)
-        #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+        print("Splitting PDFs... \n")
+        for name in names:
+            print("Splitting: " + name)
+            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+            
         directory = os.fsencode('pdfs/split/')
         files = os.listdir(directory)
         print("Parsing the split pdfs... \n")
@@ -330,4 +331,11 @@ if __name__ == '__main__':
         print("Running with {} processes".format(CPUS//2))
         with Pool(processes=4) as pool:
             r = list(pool.imap(parse_files, files))
+        
+        # Build evaluation metric for parsing effectiveness
+        with open('successful_tests.txt', 'r') as f:
+            successful=sum(1 for _ in f)
+        with open('failed_tests.txt', "r") as f:
+            failed =sum(1 for _ in f)
+        print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
         exit(0)

@@ -11,7 +11,6 @@ endif
 
 run: clean init
 	python3 review_ocr.py ocr_db_v1 False
-	python3 evaluate.py
 	python3 mongo_writer.py ocr_db_v1	
 
 clean:
