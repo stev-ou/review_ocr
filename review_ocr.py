@@ -5,15 +5,10 @@ import urllib.error
 from multiprocessing import Pool
 import multiprocessing
 import re
-try:
-    from PIL import Image
-except ImportError:
-    import Image
 import pprint
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
-from pymongo import MongoClient, errors
 import pymongo
 from tqdm import tqdm
 import time
@@ -52,7 +47,11 @@ header_col_mapper = {'College of Architecture': 'CoA',
 'University College': 'UC', 'Center for Independent and Distance Learning': 'CfIaDL', 
 'Expository Writing Program': 'EWP', 'ROTC - Air Force': 'R-AF'}
 
-## Parsing helper functions
+# Create parsing errors to use
+class ParsingError(Exception):
+    pass
+
+## Parsing helper function
 def recursive_separate(textfile, separators, section_list = []):
     """
     Separates a textfile into a sequential list of sections as dictated by the separators
@@ -62,22 +61,20 @@ def recursive_separate(textfile, separators, section_list = []):
     front = splits[0]
     back = el.join(splits[1:]).strip()
     if back == '':
-        raise Exception('Separating failed for ' + textfile + ' and ' + el)
+        raise ParsingError('Separating failed for ' + textfile + ' \n\n with separating element- ' + el )
     if front != '':
         section_list.append(front)
     if len(separators) == 0:
         section_list.append(back)
         return section_list
     return recursive_separate(back, separators, section_list)
-###
 
 def web_crawl(url):
     """
     This function will crawl the given url, and download specific pdfs that correspond to the 
     entries in the header_col_mapper.
     """
-    urls = []
-    names = []
+    urls = []; names = []
     page = requests.get(url, timeout=5)
     soup = BeautifulSoup(page.text, "html.parser")
     print(len(soup.findAll('div')))
@@ -162,46 +159,11 @@ def pdf_splitter(path, col, term):
 
     return pnum
 
-def bug_city(l, key):
-    # Welcome to Bug City
-    # Remove Citizens of Bug City1
-    for i in range(0, len(l)-1):
-        if l[i] in BUG_CITY:
-            l.pop(i)
-
-    for i in range(0, len(l)):
-        if l[i] in BUG_CITY2.keys():
-            l[i] = BUG_CITY2[l[i]]
-
-    new = []
-    k = 0
-    while k < len(l):
-        if l[k] == key:
-            new.append(l[k])
-            k += 1
-            break
-        else:
-            k += 1
-
-    for i in range(k, len(l)):
-        try:
-            f = float(l[i])
-            new.append(f)
-        except ValueError:
-            try:
-                n = int(l[i])
-                new.append(n)
-            except ValueError:
-                break
-
-    return new
-
 def parse_files(file):
     """
     This function extracts the text from a single page pdf file, then parses the text to fit into a defined schema.
     """
     try:
-    # for pkl in ['nope']:
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
 
@@ -254,9 +216,9 @@ def parse_files(file):
             col = re.findall(r"[A-z]+", str_file)[0]
             if col in col_header_mapper.keys():
                 meta_dict['College Code'] = col
-                meta_dict['Term Code'] = str_file[5:10]
+                meta_dict['Term Code'] = str(int(re.findall(r"[2][0][1-3][0-9][123][0]", str_file)[-1]))
             else:
-                raise Exception(f'The filename {str_file} cannot be parsed to obtain college code and term code')
+                raise ParsingError(f'The filename {str_file} cannot be parsed to obtain college code and term code')
                         
             assert(len(re.findall(r"[0-9]+", meta_sections[5]))==0) # Make sure the name is all non-numeric
             # Define instructor list for adding instructors to
@@ -335,16 +297,15 @@ def parse_files(file):
 
     except ValueError:
         print(ValueError)
-        with open("failed_tests.txt", "a+") as runf:
-            runf.write(file.decode('utf-8') + "\n")
-        print('At filename '+ file.decode('utf-8'))
-    # except pymongo.errors.AutoReconnect:
-    #     print("sleeping...")
-    #     baddata.append(f)
-    #     with open("baddata.txt", "a+") as ff:
-    #         ff.write(f + "\n")
-    #     time.sleep(300)
-    #     return
+        with open("failed_tests.txt", "a+") as fail:
+            fail.write(file.decode('utf-8') + "\n")
+        print('ValueError at filename '+ file.decode('utf-8'))
+
+    except ParsingError:
+        print(ParsingError)
+        with open("failed_tests.txt", "a+") as fail:
+            fail.write(file.decode('utf-8') + "\n")
+        print('ParsingError at filename '+ file.decode('utf-8'))
 
     # except DNSException:
     #     print("DNS Timeout... sleeping for a bit...")
@@ -380,29 +341,26 @@ if __name__ == '__main__':
         exit(0)
 
     else:
-        """
-        print("Crawling...")
+        # print("Crawling the OU website...")
  
-        url = "http://www.ou.edu/provost/course-evaluation-data"
+        # url = "http://www.ou.edu/provost/course-evaluation-data"
  
-        names = web_crawl(url)
- 
+        # names = web_crawl(url)
+        # print('\n\n')
         # print(names)
-        for name in names:
-            print("Splitting: " + name)
-            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
-        """
+        # print('\n\n')
 
+        # print("Splitting PDFs... \n")
+        # for name in names:
+        #     print("Splitting: " + name)
+        #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
         directory = os.fsencode('pdfs/split/')
         files = os.listdir(directory)
         # parse_files(directory)
-
+        print("Parsing the split pdfs... \n")
         CPUS = os.cpu_count()
         print("Number of CPU's detected: {}".format(CPUS))
         print("Running with {} processes".format(CPUS//2))
-        #list(map(parse_files, files))
-        #with Pool(processes=CPUS//2) as pool:
-        exit(0)
         with Pool(processes=CPUS//2) as pool:
             r = list(pool.imap(parse_files, files))
         exit(0)
