@@ -330,11 +330,13 @@ def parse_files(file):
             #collection.insert_one(db_objects[i])
             with open(str(current.name) + ".txt", "a+") as ff:
                 ff.write(str(i) + "\n")  
-            with open("run_files.txt", "a+") as runf:
+            with open("successful_tests.txt", "a+") as runf:
                 runf.write(f + "\n")
 
     except ValueError:
         print(ValueError)
+        with open("failed_tests.txt", "a+") as runf:
+            runf.write(file.decode('utf-8') + "\n")
         print('At filename '+ file.decode('utf-8'))
     # except pymongo.errors.AutoReconnect:
     #     print("sleeping...")
@@ -401,6 +403,6 @@ if __name__ == '__main__':
         #list(map(parse_files, files))
         #with Pool(processes=CPUS//2) as pool:
         exit(0)
-        with Pool(processes=4) as pool:
+        with Pool(processes=CPUS//2) as pool:
             r = list(pool.imap(parse_files, files))
         exit(0)

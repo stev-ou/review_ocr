@@ -1,0 +1,625 @@
+rm -r pdfs/
+mkdir pdfs/
+mkdir pdfs/split/
+mkdir pdfs/txts/
+pip3 install -r requirements.txt
+Requirement already satisfied: tika in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 1)) (1.19)
+Requirement already satisfied: pillow in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 2)) (6.1.0)
+Requirement already satisfied: pypdf2 in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 3)) (1.26.0)
+Requirement already satisfied: beautifulsoup4 in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 4)) (4.8.0)
+Requirement already satisfied: requests in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 5)) (2.22.0)
+Requirement already satisfied: pymongo in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 6)) (3.8.0)
+Requirement already satisfied: dnspython in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 7)) (1.16.0)
+Requirement already satisfied: tqdm in ./env/lib/python3.7/site-packages (from -r requirements.txt (line 8)) (4.33.0)
+Requirement already satisfied: setuptools in ./env/lib/python3.7/site-packages (from tika->-r requirements.txt (line 1)) (41.0.1)
+Requirement already satisfied: soupsieve>=1.2 in ./env/lib/python3.7/site-packages (from beautifulsoup4->-r requirements.txt (line 4)) (1.9.2)
+Requirement already satisfied: urllib3!=1.25.0,!=1.25.1,<1.26,>=1.21.1 in ./env/lib/python3.7/site-packages (from requests->-r requirements.txt (line 5)) (1.25.3)
+Requirement already satisfied: idna<2.9,>=2.5 in ./env/lib/python3.7/site-packages (from requests->-r requirements.txt (line 5)) (2.8)
+Requirement already satisfied: certifi>=2017.4.17 in ./env/lib/python3.7/site-packages (from requests->-r requirements.txt (line 5)) (2019.6.16)
+Requirement already satisfied: chardet<3.1.0,>=3.0.2 in ./env/lib/python3.7/site-packages (from requests->-r requirements.txt (line 5)) (3.0.4)
+rm -r test/split
+mkdir test/split
+python3 review_ocr.py test_db True
+Created: 1CoA201030.pdf
+Created: 2CoA201030.pdf
+Created: 3CoA201030.pdf
+Created: 4CoA201030.pdf
+Created: 5CoA201030.pdf
+Created: 6CoA201030.pdf
+Created: 7CoA201030.pdf
+Created: 8CoA201030.pdf
+Created: 9CoA201030.pdf
+Created: 10CoA201030.pdf
+Created: 11CoA201030.pdf
+Created: 12CoA201030.pdf
+Created: 13CoA201030.pdf
+Created: 14CoA201030.pdf
+Created: 15CoA201030.pdf
+Created: 16CoA201030.pdf
+Created: 17CoA201030.pdf
+Created: 18CoA201030.pdf
+Created: 19CoA201030.pdf
+Created: 20CoA201030.pdf
+Created: 21CoA201030.pdf
+Created: 22CoA201030.pdf
+Created: 23CoA201030.pdf
+Created: 24CoA201030.pdf
+Created: 25CoA201030.pdf
+Created: 26CoA201030.pdf
+Created: 27CoA201030.pdf
+Created: 28CoA201030.pdf
+Created: 29CoA201030.pdf
+Created: 30CoA201030.pdf
+Created: 31CoA201030.pdf
+Created: 32CoA201030.pdf
+Created: 33CoA201030.pdf
+Created: 34CoA201030.pdf
+Created: 35CoA201030.pdf
+Created: 36CoA201030.pdf
+Created: 37CoA201030.pdf
+Created: 38CoA201030.pdf
+Created: 39CoA201030.pdf
+Created: 40CoA201030.pdf
+Created: 41CoA201030.pdf
+Created: 42CoA201030.pdf
+Created: 43CoA201030.pdf
+Created: 44CoA201030.pdf
+Created: 45CoA201030.pdf
+Created: 46CoA201030.pdf
+Created: 47CoA201030.pdf
+Created: 48CoA201030.pdf
+Created: 49CoA201030.pdf
+Created: 50CoA201030.pdf
+Created: 51CoA201030.pdf
+Created: 52CoA201030.pdf
+Created: 53CoA201030.pdf
+Created: 54CoA201030.pdf
+Created: 55CoA201030.pdf
+Created: 56CoA201030.pdf
+Created: 57CoA201030.pdf
+Created: 58CoA201030.pdf
+Created: 59CoA201030.pdf
+Created: 60CoA201030.pdf
+Created: 61CoA201030.pdf
+Created: 62CoA201030.pdf
+Created: 63CoA201030.pdf
+Created: 64CoA201030.pdf
+Created: 65CoA201030.pdf
+Created: 66CoA201030.pdf
+Created: 67CoA201030.pdf
+Created: 68CoA201030.pdf
+Created: 69CoA201030.pdf
+Created: 70CoA201030.pdf
+Created: 71CoA201030.pdf
+Created: 72CoA201030.pdf
+Created: 73CoA201030.pdf
+Created: 74CoA201030.pdf
+Created: 75CoA201030.pdf
+Created: 76CoA201030.pdf
+Created: 77CoA201030.pdf
+Created: 78CoA201030.pdf
+Created: 79CoA201030.pdf
+Created: 80CoA201030.pdf
+Created: 81CoA201030.pdf
+Created: 82CoA201030.pdf
+Created: 83CoA201030.pdf
+Running: 19CoA201030.pdf
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Running: 59CoA201030.pdf
+Adding Jill Croka to CoA20103
+Adding Jill Croka to CoA20103
+Adding Jill Croka to CoA20103
+Adding Jill Croka to CoA20103
+Adding Jill Croka to CoA20103
+Running: 68CoA201030.pdf
+Adding Christina Hoehn to CoA20103
+Adding Christina Hoehn to CoA20103
+Adding Christina Hoehn to CoA20103
+Adding Christina Hoehn to CoA20103
+Adding Christina Hoehn to CoA20103
+Running: 28CoA201030.pdf
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Running: 82CoA201030.pdf
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Running: 58CoA201030.pdf
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Running: 18CoA201030.pdf
+Adding David Boeck to CoA20103
+Adding David Boeck to CoA20103
+Adding David Boeck to CoA20103
+Adding David Boeck to CoA20103
+Adding David Boeck to CoA20103
+Running: 83CoA201030.pdf
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Running: 29CoA201030.pdf
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Running: 69CoA201030.pdf
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Running: 31CoA201030.pdf
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Running: 64CoA201030.pdf
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Running: 36CoA201030.pdf
+Adding Blair Humphreys to CoA20103
+Adding Blair Humphreys to CoA20103
+Adding Blair Humphreys to CoA20103
+Adding Blair Humphreys to CoA20103
+Adding Blair Humphreys to CoA20103
+Running: 63CoA201030.pdf
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Running: 1CoA201030.pdf
+Adding David Boeck to CoA01030
+Adding David Boeck to CoA01030
+Adding David Boeck to CoA01030
+Adding David Boeck to CoA01030
+Adding David Boeck to CoA01030
+Running: 6CoA201030.pdf
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Running: 23CoA201030.pdf
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Running: 76CoA201030.pdf
+Adding Matthew Krimmer to CoA20103
+Adding Matthew Krimmer to CoA20103
+Adding Matthew Krimmer to CoA20103
+Adding Matthew Krimmer to CoA20103
+Adding Matthew Krimmer to CoA20103
+Running: 24CoA201030.pdf
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Running: 71CoA201030.pdf
+Adding Shane Friese to CoA20103
+Adding Shane Friese to CoA20103
+Adding Shane Friese to CoA20103
+Adding Shane Friese to CoA20103
+Adding Shane Friese to CoA20103
+Running: 12CoA201030.pdf
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Running: 47CoA201030.pdf
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Running: 15CoA201030.pdf
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Running: 40CoA201030.pdf
+Adding Kenneth Robson to CoA20103
+Adding Kenneth Robson to CoA20103
+Adding Kenneth Robson to CoA20103
+Adding Kenneth Robson to CoA20103
+Adding Kenneth Robson to CoA20103
+Running: 55CoA201030.pdf
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Running: 52CoA201030.pdf
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Running: 70CoA201030.pdf
+Adding Scott Williams to CoA20103
+Adding Scott Williams to CoA20103
+Adding Scott Williams to CoA20103
+Adding Scott Williams to CoA20103
+Adding Scott Williams to CoA20103
+Running: 25CoA201030.pdf
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Adding Anthony Cricchio to CoA20103
+Running: 77CoA201030.pdf
+Adding Fernando Costa to CoA20103
+Adding Fernando Costa to CoA20103
+Adding Fernando Costa to CoA20103
+Adding Fernando Costa to CoA20103
+Adding Fernando Costa to CoA20103
+Running: 22CoA201030.pdf
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Adding IKwang Chang to CoA20103
+Running: 62CoA201030.pdf
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Running: 37CoA201030.pdf
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Running: 65CoA201030.pdf
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Adding Abimbola Asojo to CoA20103
+Running: 30CoA201030.pdf
+Adding John Yowell to CoA20103
+Adding John Yowell to CoA20103
+Adding John Yowell to CoA20103
+Adding John Yowell to CoA20103
+Adding John Yowell to CoA20103
+Running: 7CoA201030.pdf
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Running: 53CoA201030.pdf
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Adding Douglas Gransberg to CoA20103
+Running: 54CoA201030.pdf
+Adding Nasir Marakah to CoA20103
+Adding Nasir Marakah to CoA20103
+Adding Nasir Marakah to CoA20103
+Adding Nasir Marakah to CoA20103
+Adding Nasir Marakah to CoA20103
+Running: 41CoA201030.pdf
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Running: 14CoA201030.pdf
+Adding Kenneth Jorgenson to CoA20103
+Adding Kenneth Jorgenson to CoA20103
+Adding Kenneth Jorgenson to CoA20103
+Adding Kenneth Jorgenson to CoA20103
+Adding Kenneth Jorgenson to CoA20103
+Running: 46CoA201030.pdf
+Adding Lisa Holliday to CoA20103
+Adding Lisa Holliday to CoA20103
+Adding Lisa Holliday to CoA20103
+Adding Lisa Holliday to CoA20103
+Adding Lisa Holliday to CoA20103
+Running: 13CoA201030.pdf
+Adding Donald Carter to CoA20103
+Adding Donald Carter to CoA20103
+Adding Donald Carter to CoA20103
+Adding Donald Carter to CoA20103
+Adding Donald Carter to CoA20103
+Running: 20CoA201030.pdf
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Adding Khosrow Bozorgi to CoA20103
+Running: 75CoA201030.pdf
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Adding Kathleen Wieters to CoA20103
+Running: 27CoA201030.pdf
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Running: 72CoA201030.pdf
+Adding Reid Coffman to CoA20103
+Adding Reid Coffman to CoA20103
+Adding Reid Coffman to CoA20103
+Adding Reid Coffman to CoA20103
+Adding Reid Coffman to CoA20103
+Running: 2CoA201030.pdf
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Running: 5CoA201030.pdf
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Running: 32CoA201030.pdf
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Running: 67CoA201030.pdf
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Running: 35CoA201030.pdf
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Running: 60CoA201030.pdf
+Adding Mia Kile to CoA20103
+Adding Mia Kile to CoA20103
+Adding Mia Kile to CoA20103
+Adding Mia Kile to CoA20103
+Adding Mia Kile to CoA20103
+Running: 56CoA201030.pdf
+Adding Bryan Bloom to CoA20103
+Adding Bryan Bloom to CoA20103
+Adding Bryan Bloom to CoA20103
+Adding Bryan Bloom to CoA20103
+Adding Bryan Bloom to CoA20103
+Running: 51CoA201030.pdf
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Running: 11CoA201030.pdf
+Adding Samuel Callahan to CoA20103
+Adding Samuel Callahan to CoA20103
+Adding Samuel Callahan to CoA20103
+Adding Samuel Callahan to CoA20103
+Adding Samuel Callahan to CoA20103
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Adding Stephanie Pilat to CoA20103
+Running: 44CoA201030.pdf
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Running: 16CoA201030.pdf
+Adding DANIEL BUTKO to CoA20103
+Adding DANIEL BUTKO to CoA20103
+Adding DANIEL BUTKO to CoA20103
+Adding DANIEL BUTKO to CoA20103
+Adding DANIEL BUTKO to CoA20103
+Running: 43CoA201030.pdf
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Running: 4CoA201030.pdf
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Running: 3CoA201030.pdf
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Adding Thomas Cline to CoA01030
+Running: 61CoA201030.pdf
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Elizabeth Pober to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Adding Janet Biddick to CoA20103
+Running: 34CoA201030.pdf
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Lee Fithian to CoA20103
+Adding Daniel Wallace to CoA20103
+Adding Daniel Wallace to CoA20103
+Adding Daniel Wallace to CoA20103
+Adding Daniel Wallace to CoA20103
+Adding Daniel Wallace to CoA20103
+Running: 66CoA201030.pdf
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Adding HansPeter Wachter to CoA20103
+Running: 33CoA201030.pdf
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Running: 73CoA201030.pdf
+Adding Jonathan Garner to CoA20103
+Adding Jonathan Garner to CoA20103
+Adding Jonathan Garner to CoA20103
+Adding Jonathan Garner to CoA20103
+Adding Jonathan Garner to CoA20103
+Running: 26CoA201030.pdf
+Adding Marjorie Callahan to CoA20103
+Adding Marjorie Callahan to CoA20103
+Adding Marjorie Callahan to CoA20103
+Adding Marjorie Callahan to CoA20103
+Adding Marjorie Callahan to CoA20103
+Running: 74CoA201030.pdf
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Running: 21CoA201030.pdf
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Adding Hans Butzer to CoA20103
+Running: 42CoA201030.pdf
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Running: 17CoA201030.pdf
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Adding Bob Fillpot to CoA20103
+Running: 45CoA201030.pdf
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Adding Richard Ryan to CoA20103
+Running: 10CoA201030.pdf
+<class 'ValueError'>
+At filename 10CoA201030.pdf
+Running: 50CoA201030.pdf
+Adding Jeremy Carlisle to CoA20103
+Adding Jeremy Carlisle to CoA20103
+Adding Jeremy Carlisle to CoA20103
+Adding Jeremy Carlisle to CoA20103
+Adding Jeremy Carlisle to CoA20103
+Running: 57CoA201030.pdf
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Running: 48CoA201030.pdf
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding Tamera Mc Cuen to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Running: 81CoA201030.pdf
+Adding Michael Southard to CoA20103
+Adding Michael Southard to CoA20103
+Adding Michael Southard to CoA20103
+Adding Michael Southard to CoA20103
+Adding Michael Southard to CoA20103
+Running: 79CoA201030.pdf
+Adding Douglas Rex to CoA20103
+Adding Douglas Rex to CoA20103
+Adding Douglas Rex to CoA20103
+Adding Douglas Rex to CoA20103
+Adding Douglas Rex to CoA20103
+Running: 9CoA201030.pdf
+Adding John Yowell to CoA01030
+Adding John Yowell to CoA01030
+Adding John Yowell to CoA01030
+Adding John Yowell to CoA01030
+Adding John Yowell to CoA01030
+Running: 39CoA201030.pdf
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Adding Nickolas Harm to CoA20103
+Running: 49CoA201030.pdf
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Adding William Mc Manus to CoA20103
+Running: 8CoA201030.pdf
+Adding Samuel Callahan to CoA01030
+Adding Samuel Callahan to CoA01030
+Adding Samuel Callahan to CoA01030
+Adding Samuel Callahan to CoA01030
+Adding Samuel Callahan to CoA01030
+Running: 38CoA201030.pdf
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Adding Shawn Schaefer to CoA20103
+Running: 78CoA201030.pdf
+Adding Richard Marshment to CoA20103
+Adding Richard Marshment to CoA20103
+Adding Richard Marshment to CoA20103
+Adding Richard Marshment to CoA20103
+Adding Richard Marshment to CoA20103
+Running: 80CoA201030.pdf
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
+Adding Charles Warnken to CoA20103
