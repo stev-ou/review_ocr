@@ -44,7 +44,15 @@ class ParsingError(Exception):
 ## Parsing helper function
 def recursive_separate(textfile, separators, section_list = []):
     """
-    Separates a textfile into a sequential list of sections as dictated by the separators
+    Separates a textfile into a sequential list of sections as dictated by the separators.
+    Inputs: 
+    textfile: A long string to separate into different sections
+    separators: The keywords to separate the textfile by.
+    section_list: A list to append the sections to. Please pass in empty string.
+
+    Returns:
+    section_list: The list of each section of the string, separated by the separators keywords. 
+    Note that the resultant list wont contain the separator keywords
     """
     el = separators.pop(0)
     splits = textfile.split(el)
@@ -70,6 +78,7 @@ def web_crawl(url):
     print(len(soup.findAll('div')))
     # Each header with a 'articleheader' tag contains title for a college; 
     # Get this div, so we can check the next div for encompassed pdfs
+    # This section gets all of the urls and puts them into urls[]. Names of each are put into names[], matched by index.
     for i, div in enumerate(soup.findAll('div')):
         if 'class' in div.attrs:
             if 'articleheader' in div.attrs['class'] and len(div.text)>0:
@@ -83,16 +92,15 @@ def web_crawl(url):
                         for semester in SEMESTERS.keys():
                             if semester in a.text and year in a.text:
                                 # We are only saving the urls/names of current years and desired colleges
-                                # Gotta git rid of some unnecessary characters in the url and set it up to parse properly
+                                # Weirdly all https:// pdf redirects failed?
                                 if 'https://' in a.get('href'):
                                     print('Error on ' + f'{col}{year}{SEMESTERS[semester]}')
                                     continue
                                 else:
                                     full_url = url + a.get('href')
-                                # pdf_url = full_url
                                 pdf_url = (full_url[:18] + full_url[49:])
                                 name = f'{col}{year}{SEMESTERS[semester]}'
-                                if pdf_url not in urls and name not in names: # Kind of sketchy, theoretically shouldnt be duplicates
+                                if pdf_url not in urls and name not in names: # Kind of sketchy, theoretically shouldnt be duplicates but they showed up
                                     urls.append(pdf_url)
                                     names.append(str(col) + str(year) +
                                                 str(SEMESTERS[semester]))
@@ -152,21 +160,23 @@ def pdf_splitter(path, col, term):
 def parse_files(file):
     """
     This function extracts the text from a single page pdf file, then parses the text to fit into a defined schema.
+    Inputs: 
+    - file: The name of the single page pdf file to extract text from
+    Returns:
+    - Nothing, writes successfully parsed tests to successful_tests.txt, and tests that failed to parse to failed_tests.txt.
+    Also writes the db_objects, ie. the file text fit into the schema, into a ForkPoolWorker-1.txt. This is where the scraped data
+    gets read from for the upload to MongoDB in mongo_writer.py.
     """
     try:
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
-
-        # # This file SUCKS!!!!
-        # if f == "349ints201710.pdf":
-        #     return
 
         if f.endswith(".pdf"):
             print("Running: " + f)
             raw = parser.from_file(directory + file)
             text_Tika = raw['content']
             lines = text_Tika.splitlines()
-            # Save the txt file to compare
+            # Save the txt file for reference; this could be eliminated in future iterations, its not used anywhere.
             with open('pdfs/txts/' + f.rstrip(".pdf")+ '.txt', 'w') as txtf:
                 txtf.write(raw['content'])
 
@@ -181,9 +191,10 @@ def parse_files(file):
 
             ## Parse the meta data to find the number of instructors
             # Parse the metadata for fields of interest
-            # Should be able to get Term Code and College Code from previous parsing
+            # Can get Term Code and College Code from pdf name
             # Still need 'Subject Code', 'Course Number', 'Individual Responses', 'Section Title'
             # Use keywords to split the metadata into sections
+            # Instuctors is IMPORTANT. Has large impact on functionality downstream.
             if ' Instructors: ' in meta:
                 Instructors = True
                 # If Instructors: use this keyword
@@ -222,7 +233,8 @@ def parse_files(file):
                 entry_list.append(deepcopy(meta_dict)) # Each entry will have the same metadata; Different instrs
                 instr_string = ''.join([i for i in instr_string if i.isalnum() or i==' ']).strip()
                 entry_list[-1]['Instructor First Name'] = instr_string.split()[0].strip()
-                # Associate latter arrays with last name
+                # Associate latter elements with thelast name. 
+                # Basically, this breaks 'Zach Van Dam' into FirstName: Zach, LastName: Van Dam
                 entry_list[-1]['Instructor Last Name'] = ' '.join(instr_string.split()[1:]).strip()
 
             ## Now that we know the number of instructors, we can parse the Question text (Q_text)
@@ -244,7 +256,7 @@ def parse_files(file):
 
             # Split the question sections up by instructors
             partitioned_Q_sections = [-1]*len(entry_list) # Need as many sections as entries
-            shared_sections, sections_by_instructor  = Q_sections[:len(Q_uniq)], Q_sections[len(Q_uniq):]
+            shared_sections, sections_by_instructor = Q_sections[:len(Q_uniq)], Q_sections[len(Q_uniq):]
             for c in range(len(partitioned_Q_sections)):
                 partitioned_Q_sections[c] = shared_sections + sections_by_instructor[c*len(Q_dupes):(c+1)*len(Q_dupes)]
             assert len(set([len(pQs) for pQs in partitioned_Q_sections])) == 1 # Ensure all Q sections are same length
@@ -279,13 +291,12 @@ def parse_files(file):
         for i in db_objects:
             print("Adding " + i["Instructor First Name"] + " " +
                     i["Instructor Last Name"] + " to " + i["College Code"]+i['Term Code'])
-            #collection.insert_one(db_objects[i])
             with open(str(current.name) + ".txt", "a+") as ff:
                 ff.write(str(i) + "\n")  
             with open("successful_tests.txt", "a+") as runf:
                 runf.write(f + "\n")
     
-    # Handle all of our potential errors:
+    # Handle all of our potential errors. This is very general but future work could refine.
     except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
         if hasattr(Error, '__name__'):
             name = Error.__name__
@@ -297,9 +308,10 @@ def parse_files(file):
 
 if __name__ == '__main__':
 
+    # Catch Incorrect program calls
     if len(sys.argv) < 3 or len(sys.argv) > 3:
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
-
+    # Run the test case
     if sys.argv[2] == "True":
         pdf_splitter("test/CoA201030.pdf", "CoA", "201030")
         directory = os.fsencode('test/split/')
@@ -307,7 +319,7 @@ if __name__ == '__main__':
         for file in files[:]:
             _ = parse_files(file)
         exit(0)
-
+    # Run the main program
     else:
         print("Crawling the OU website...")
  
@@ -322,14 +334,14 @@ if __name__ == '__main__':
         for name in names:
             print("Splitting: " + name)
             pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
-            
+
         directory = os.fsencode('pdfs/split/')
         files = os.listdir(directory)
         print("Parsing the split pdfs... \n")
         CPUS = os.cpu_count()
-        print("Number of CPU's detected: {}".format(CPUS))
-        print("Running with {} processes".format(CPUS//2))
-        with Pool(processes=4) as pool:
+        print(f"Number of CPU's detected: {CPUS}")
+        print(f"Running with {CPUS//2} processes")
+        with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer. Doesnt take too long anyway
             r = list(pool.imap(parse_files, files))
         
         # Build evaluation metric for parsing effectiveness

@@ -7,7 +7,6 @@ from pymongo import MongoClient
 client = MongoClient("mongodb+srv://zach:G8GqPsUgP6b9VUvc"
         "@cluster0-svcn3.gcp.mongodb.net/test?retryWrites=true")
 
-
 # Define the ocr_db to write to in Mongo
 db = client[str(sys.argv[1])]
 

@@ -1,5 +1,6 @@
 # All pdf content is the data
 pdfs/*
+test/split/*
 
 # These are the results of the parsing
 ForkPoolWorker-*.txt
