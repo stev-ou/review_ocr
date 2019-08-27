@@ -94,23 +94,30 @@ def web_crawl(url):
                         for semester in SEMESTERS.keys():
                             if semester in a.text and year in a.text:
                                 # We are only saving the urls/names of current years and desired colleges
-                                # Weirdly all https:// pdf redirects failed?
-                                if False: #'https://' in a.get('href'):
-                                    print('Error on ' + f'{col}{year}{SEMESTERS[semester]}')
-                                    continue
-                                else:
-                                    full_url = url + a.get('href')
+                                full_url = url + a.get('href')
                                 pdf_url = (full_url[:18] + full_url[49:])
                                 name = f'{col}{year}{SEMESTERS[semester]}'
                                 if pdf_url not in urls and name not in names: # Kind of sketchy, theoretically shouldnt be duplicates but they showed up
                                     urls.append(pdf_url)
-                                    names.append(str(col) + str(year) +
-                                                str(SEMESTERS[semester]))
-                                    print(f"Adding {col}{year}{SEMESTERS[semester]} to Write Queue...")
-                                    print(pdf_url + "\n")
-                                    crawl_tracker[col][year][sem] = True
+                                    names.append(name)
+                                    # Now to download the pdf
+                                    try:
+                                        print("Processing Name: " + name)
+                                        resp = urllib.request.urlopen(pdf_url)
+                                        try:
+                                            print("Attempting to open: " + pdf_url)
+                                            with open("pdfs/" + name + ".pdf", 'xb') as pdf:
+                                                print("Writing " + name + "\n")
+                                                pdf.write(resp.read())
+                                        except FileExistsError:
+                                            print(name + " ALREADY EXISTS IN DIRECTORY!!\n")
+                                        crawl_tracker[col][year][semester] = True
+                                    except urllib.error.HTTPError:
+                                        print(f'404 Error for name: {name} and url {pdf_url}')
+                                        crawl_tracker[col][year][semester] = False
 
     # Finished scraping, all college semester names in names, urls, crawl_tracker status in crawl_tracker
+    if os.exists()
     with open('Crawling_evaluation.txt', 'w') as crawl_file:
         crawl_results = [True if crawl_tracker[coll][year][sem] else False for coll in header_col_mapper.values() for year in CURRENT_YEARS for sem in SEMESTERS.keys()]
         true_counts, false_counts =crawl_results.count(True), crawl_results.count(False)
@@ -120,27 +127,6 @@ def web_crawl(url):
         print(f' {CURRENT_YEARS}\n')
         crawl_file.write(f'The specific crawling results are shown below: \n\n')
         pprint.pprint(crawl_tracker, stream=crawl_file)
-
-    # Now we "download" the pdfs by writing to pdf files
-    for name, url in zip(names, urls):
-        try:
-            print("Attempting to open: " + url)
-            resp = urllib.request.urlopen(url)
-
-            try:
-                pdf = open("pdfs/" + name + ".pdf", 'xb')
-                print("Writing " + name + "\n")
-                pdf.write(resp.read())
-                pdf.close()
-            except FileExistsError:
-                print(name + " ALREADY EXISTS IN DIRECTORY!!\n")
-
-        except urllib.error.HTTPError:
-            print("404 Error on this page... This PDF may not exist yet.\n")
-            with open('Crawling_evaluation.txt', 'w') as crawl_file:
-                crawl_file.write('404 Error on this page... This PDF may not exist yet.\n')
-            names.remove(name)
-    return names
 
 def pdf_splitter(path, col, term):
     """
@@ -346,24 +332,24 @@ if __name__ == '__main__':
         print('\n\n')
         exit(0)
 
-        # print("Splitting PDFs... \n")
-        # for name in names:
-        #     print("Splitting: " + name)
-        #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+        print("Splitting PDFs... \n")
+        for name in names:
+            print("Splitting: " + name)
+            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
 
-        # directory = os.fsencode('pdfs/split/')
-        # files = os.listdir(directory)
-        # print("Parsing the split pdfs... \n")
-        # CPUS = os.cpu_count()
-        # print(f"Number of CPU's detected: {CPUS}")
-        # print(f"Running with {CPUS//2} processes")
-        # with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer. Doesnt take too long anyway
-        #     r = list(pool.imap(parse_files, files))
+        directory = os.fsencode('pdfs/split/')
+        files = os.listdir(directory)
+        print("Parsing the split pdfs... \n")
+        CPUS = os.cpu_count()
+        print(f"Number of CPU's detected: {CPUS}")
+        print(f"Running with {CPUS//2} processes")
+        with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer. Doesnt take too long anyway
+            r = list(pool.imap(parse_files, files))
         
-        # # Build evaluation metric for parsing effectiveness
-        # with open('successful_tests.txt', 'r') as f:
-        #     successful=sum(1 for _ in f)
-        # with open('failed_tests.txt', "r") as f:
-        #     failed =sum(1 for _ in f)
-        # print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
-        # exit(0)
+        # Build evaluation metric for parsing effectiveness
+        with open('successful_tests.txt', 'r') as f:
+            successful=sum(1 for _ in f)
+        with open('failed_tests.txt', "r") as f:
+            failed =sum(1 for _ in f)
+        print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
+        exit(0)
