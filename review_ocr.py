@@ -79,6 +79,8 @@ def web_crawl(url):
     # Each header with a 'articleheader' tag contains title for a college; 
     # Get this div, so we can check the next div for encompassed pdfs
     # This section gets all of the urls and puts them into urls[]. Names of each are put into names[], matched by index.
+    # Make a structure to keep track of which have been successfully crawled and which havent
+    crawl_tracker = {coll:{year:{sem:False for sem in SEMESTERS.keys()} for year in CURRENT_YEARS} for coll in header_col_mapper.values()}
     for i, div in enumerate(soup.findAll('div')):
         if 'class' in div.attrs:
             if 'articleheader' in div.attrs['class'] and len(div.text)>0:
@@ -93,7 +95,7 @@ def web_crawl(url):
                             if semester in a.text and year in a.text:
                                 # We are only saving the urls/names of current years and desired colleges
                                 # Weirdly all https:// pdf redirects failed?
-                                if 'https://' in a.get('href'):
+                                if False: #'https://' in a.get('href'):
                                     print('Error on ' + f'{col}{year}{SEMESTERS[semester]}')
                                     continue
                                 else:
@@ -106,8 +108,19 @@ def web_crawl(url):
                                                 str(SEMESTERS[semester]))
                                     print(f"Adding {col}{year}{SEMESTERS[semester]} to Write Queue...")
                                     print(pdf_url + "\n")
+                                    crawl_tracker[col][year][sem] = True
 
-    # Finished scraping, all college semester names in names, urls
+    # Finished scraping, all college semester names in names, urls, crawl_tracker status in crawl_tracker
+    with open('Crawling_evaluation.txt', 'w') as crawl_file:
+        crawl_results = [True if crawl_tracker[coll][year][sem] else False for coll in header_col_mapper.values() for year in CURRENT_YEARS for sem in SEMESTERS.keys()]
+        true_counts, false_counts =crawl_results.count(True), crawl_results.count(False)
+        crawl_file.write(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
+        crawl_file.write(f' {CURRENT_YEARS}')
+        print(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
+        print(f' {CURRENT_YEARS}\n')
+        crawl_file.write(f'The specific crawling results are shown below: \n\n')
+        pprint.pprint(crawl_tracker, stream=crawl_file)
+
     # Now we "download" the pdfs by writing to pdf files
     for name, url in zip(names, urls):
         try:
@@ -124,6 +137,8 @@ def web_crawl(url):
 
         except urllib.error.HTTPError:
             print("404 Error on this page... This PDF may not exist yet.\n")
+            with open('Crawling_evaluation.txt', 'w') as crawl_file:
+                crawl_file.write('404 Error on this page... This PDF may not exist yet.\n')
             names.remove(name)
     return names
 
@@ -207,7 +222,7 @@ def parse_files(file):
             # fields = ['Subject Code', 'Course Number', 'Individual Responses', 'Section Title', 'Instructor First Name', 'Instructor Last Name']
             entry_list = []; meta_dict = {} # entry lists will have one meta_dict per instructor found
             # Fill out the meta dict with info for all instructors
-            meta_dict['Subject Code'] = re.findall(r"[A-Z]+", meta_sections[1])[0]
+            meta_dict['Subject Code'] = re.findall(r"[A-Z ]+", meta_sections[1])[0].replace(' ', '')
             meta_dict['Course Number'] = int(re.findall(r"[0-9]+", meta_sections[1])[0])
             meta_dict['Individual Responses'] = int(re.findall(r"[0-9]+", meta_sections[2])[0])
             meta_dict['Section Title'] = meta_sections[3].strip(' ') 
@@ -217,7 +232,7 @@ def parse_files(file):
             col = re.findall(r"[A-z]+", str_file)[0]
             if col in col_header_mapper.keys():
                 meta_dict['College Code'] = col
-                meta_dict['Term Code'] = str(int(re.findall(r"[2][0][1-3][0-9][123][0]", str_file)[-1]))
+                meta_dict['Term Code'] = int(re.findall(r"[2][0][1-3][0-9][123][0]", str_file)[-1])
             else:
                 raise ParsingError(f'The filename {str_file} cannot be parsed to obtain college code and term code')
                         
@@ -271,7 +286,7 @@ def parse_files(file):
                 for qn, qs in zip(Q_uniq + Q_dupes, partitioned_Q_sections[el_i]):
                     Q_dict = {}
                     # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
-                    Q_dict['Question Number'] =  qn.strip(' ').strip('.')
+                    Q_dict['Question Number'] =  int(qn.strip(' ').strip('.'))
                     Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
                     # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
                     Q_dict['Mean'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1])
@@ -329,25 +344,26 @@ if __name__ == '__main__':
         print('\n\n')
         print(names)
         print('\n\n')
-
-        print("Splitting PDFs... \n")
-        for name in names:
-            print("Splitting: " + name)
-            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
-
-        directory = os.fsencode('pdfs/split/')
-        files = os.listdir(directory)
-        print("Parsing the split pdfs... \n")
-        CPUS = os.cpu_count()
-        print(f"Number of CPU's detected: {CPUS}")
-        print(f"Running with {CPUS//2} processes")
-        with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer. Doesnt take too long anyway
-            r = list(pool.imap(parse_files, files))
-        
-        # Build evaluation metric for parsing effectiveness
-        with open('successful_tests.txt', 'r') as f:
-            successful=sum(1 for _ in f)
-        with open('failed_tests.txt', "r") as f:
-            failed =sum(1 for _ in f)
-        print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
         exit(0)
+
+        # print("Splitting PDFs... \n")
+        # for name in names:
+        #     print("Splitting: " + name)
+        #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+
+        # directory = os.fsencode('pdfs/split/')
+        # files = os.listdir(directory)
+        # print("Parsing the split pdfs... \n")
+        # CPUS = os.cpu_count()
+        # print(f"Number of CPU's detected: {CPUS}")
+        # print(f"Running with {CPUS//2} processes")
+        # with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer. Doesnt take too long anyway
+        #     r = list(pool.imap(parse_files, files))
+        
+        # # Build evaluation metric for parsing effectiveness
+        # with open('successful_tests.txt', 'r') as f:
+        #     successful=sum(1 for _ in f)
+        # with open('failed_tests.txt', "r") as f:
+        #     failed =sum(1 for _ in f)
+        # print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
+        # exit(0)
