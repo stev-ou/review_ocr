@@ -113,11 +113,12 @@ def web_crawl(url):
                                             print(name + " ALREADY EXISTS IN DIRECTORY!!\n")
                                         crawl_tracker[col][year][semester] = True
                                     except urllib.error.HTTPError:
-                                        print(f'404 Error for name: {name} and url {pdf_url}')
+                                        print(f'404 Error for name: {name} and url {pdf_url}\n')
                                         crawl_tracker[col][year][semester] = False
+                                        names.remove(name)
+    return names
 
     # Finished scraping, all college semester names in names, urls, crawl_tracker status in crawl_tracker
-    if os.exists()
     with open('Crawling_evaluation.txt', 'w') as crawl_file:
         crawl_results = [True if crawl_tracker[coll][year][sem] else False for coll in header_col_mapper.values() for year in CURRENT_YEARS for sem in SEMESTERS.keys()]
         true_counts, false_counts =crawl_results.count(True), crawl_results.count(False)
@@ -140,6 +141,7 @@ def pdf_splitter(path, col, term):
         print("==========================================================================================")
         print("Cannot Find File: " + path)
         print("==========================================================================================")
+        exit(0) # This shouldnt ever happen
         return
     for page in range(pdf.getNumPages()):
         pdf_writer = PdfFileWriter()
@@ -291,7 +293,7 @@ def parse_files(file):
 
         for i in db_objects:
             print("Adding " + i["Instructor First Name"] + " " +
-                    i["Instructor Last Name"] + " to " + i["College Code"]+i['Term Code'])
+                    i["Instructor Last Name"] + " to " + i["College Code"]+str(i['Term Code']))
             with open(str(current.name) + ".txt", "a+") as ff:
                 ff.write(str(i) + "\n")  
             with open("successful_tests.txt", "a+") as runf:
@@ -322,20 +324,19 @@ if __name__ == '__main__':
         exit(0)
     # Run the main program
     else:
-        print("Crawling the OU website...")
+        # print("Crawling the OU website...")
  
-        url = "http://www.ou.edu/provost/course-evaluation-data"
+        # url = "http://www.ou.edu/provost/course-evaluation-data"
  
-        names = web_crawl(url)
-        print('\n\n')
-        print(names)
-        print('\n\n')
-        exit(0)
+        # names = web_crawl(url)
+        # print('\n\n')
+        # print(names)
+        # print('\n\n')
 
-        print("Splitting PDFs... \n")
-        for name in names:
-            print("Splitting: " + name)
-            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+        # print("Splitting PDFs... \n")
+        # for name in names:
+        #     print("Splitting: " + name)
+        #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
 
         directory = os.fsencode('pdfs/split/')
         files = os.listdir(directory)
