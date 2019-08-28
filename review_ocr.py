@@ -170,7 +170,7 @@ def parse_files(file):
     Also writes the db_objects, ie. the file text fit into the schema, into a ForkPoolWorker-1.txt. This is where the scraped data
     gets read from for the upload to MongoDB in mongo_writer.py.
     """
-    try:
+    for notavar in [1]:
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
 
@@ -245,16 +245,29 @@ def parse_files(file):
             Q_text, _ = Q_text.split(' Response Key ')
 
             # Find the Question Numbers and use to get the questions
-            question_numbers = re.findall(r'( [1-9]{1,2}\. )', Q_text)
+            question_numbers = re.findall(r'( [0-9]{1,2}\. )', Q_text)
 
             # Find duplicate elements in the question_numbers list; Duplicate questions indicate multiple instructors
             Q_dupes = [x for n, x in enumerate(question_numbers) if x in question_numbers[:n]]
             Q_uniq = [x for n, x in enumerate(question_numbers) if x not in question_numbers[:n] and x not in Q_dupes]
             # Make sure we have enough questions for all of the instructors
             assert len(question_numbers)-len(Q_uniq) - len(Q_dupes)*len(entry_list) == 0
-
+            print(Q_text)
             # Use the recursive separate to split Q_text into sections
             Q_sections = recursive_separate(Q_text, deepcopy(question_numbers), section_list = [])
+            print(Q_sections)
+            # The first split section will sometimes contain the instructor name. If so, get drop it
+            Sections_to_drop = set()
+            print(f'There are {len(entry_list)} in entry_list')
+            for entry in entry_list:
+                for ss, sect in enumerate(Q_sections[0:1]): # Just checking the first section for now
+                    print(entry['Instructor First Name'])
+                    print(entry['Instructor Last Name'])
+                    if entry['Instructor First Name'].title() in sect.title() or entry['Instructor Last Name'].title() in sect.title():
+                        Sections_to_drop.add(ss)
+            print(Sections_to_drop)
+            for sect in sorted(Sections_to_drop, reverse=True): # Reverse them before removing to retain ordering
+                del Q_sections[sect]
             assert len(Q_sections) == len(question_numbers) 
 
             # Split the question sections up by instructors
@@ -271,6 +284,7 @@ def parse_files(file):
                 # Fill out the questions
                 questions = []
                 # Zip together the question numbers and the partitioned sections
+                print(partitioned_Q_sections[el_i])
                 for qn, qs in zip(Q_uniq + Q_dupes, partitioned_Q_sections[el_i]):
                     Q_dict = {}
                     # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
@@ -299,15 +313,15 @@ def parse_files(file):
             with open("successful_tests.txt", "a+") as runf:
                 runf.write(f + "\n")
     
-    # Handle all of our potential errors. This is very general but future work could refine.
-    except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
-        if hasattr(Error, '__name__'):
-            name = Error.__name__
-        else:
-            name = 'AssertionError'
-        with open("failed_tests.txt", "a+") as fail:
-            fail.write(file.decode('utf-8') + f": Failed due to {name}\n")
-        print(f'{name} at filename '+ file.decode('utf-8'))           
+    # # Handle all of our potential errors. This is very general but future work could refine.
+    # except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
+    #     if hasattr(Error, '__name__'):
+    #         name = Error.__name__
+    #     else:
+    #         name = 'AssertionError'
+    #     with open("failed_tests.txt", "a+") as fail:
+    #         fail.write(file.decode('utf-8') + f": Failed due to {name}\n")
+    #     print(f'{name} at filename '+ file.decode('utf-8'))           
 
 if __name__ == '__main__':
 
@@ -316,7 +330,7 @@ if __name__ == '__main__':
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
     # Run the test case
     if sys.argv[2] == "True":
-        pdf_splitter("test/CoA201030.pdf", "CoA", "201030")
+        pdf_splitter("test/GCoE201920.pdf", "GCoE", "201920")
         directory = os.fsencode('test/split/')
         files = os.listdir(directory)
         for file in files[:]:
