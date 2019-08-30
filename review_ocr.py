@@ -116,10 +116,9 @@ def web_crawl(url):
                                         print(f'404 Error for name: {name} and url {pdf_url}\n')
                                         crawl_tracker[col][year][semester] = False
                                         names.remove(name)
-    return names
 
     # Finished scraping, all college semester names in names, urls, crawl_tracker status in crawl_tracker
-    with open('crawling_evaluation.txt', 'w') as crawl_file:
+    with open('crawling_evaluation.txt', 'w+') as crawl_file:
         crawl_results = [True if crawl_tracker[coll][year][sem] else False for coll in header_col_mapper.values() for year in CURRENT_YEARS for sem in SEMESTERS.keys()]
         true_counts, false_counts =crawl_results.count(True), crawl_results.count(False)
         crawl_file.write(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
@@ -128,6 +127,8 @@ def web_crawl(url):
         print(f' {CURRENT_YEARS}\n')
         crawl_file.write(f'The specific crawling results are shown below: \n\n')
         pprint(crawl_tracker, stream=crawl_file)
+        
+    return names
 
 def pdf_splitter(path, col, term):
     """
@@ -135,14 +136,7 @@ def pdf_splitter(path, col, term):
     """
     fname = os.path.splitext(os.path.basename(path))[0]
     pnum = 0
-    try:
-        pdf = PdfFileReader(path)
-    except FileNotFoundError:
-        print("==========================================================================================")
-        print("Cannot Find File: " + path)
-        print("==========================================================================================")
-        exit(0) # This shouldnt ever happen
-        return
+    pdf = PdfFileReader(path)
     for page in range(pdf.getNumPages()):
         pdf_writer = PdfFileWriter()
         pdf_writer.addPage(pdf.getPage(page))
@@ -170,7 +164,7 @@ def parse_files(file):
     Also writes the db_objects, ie. the file text fit into the schema, into a ForkPoolWorker-1.txt. This is where the scraped data
     gets read from for the upload to MongoDB in mongo_writer.py.
     """
-    for notavar in [1]:
+    try:
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
 
@@ -212,7 +206,8 @@ def parse_files(file):
             # Fill out the meta dict with info for all instructors
             meta_dict['Subject Code'] = re.findall(r"[A-Z ]+", meta_sections[1])[0].replace(' ', '')
             meta_dict['Course Number'] = int(re.findall(r"[0-9]+", meta_sections[1])[0])
-            meta_dict['Section Title'] = meta_sections[3].strip(' ') 
+            meta_dict['Section Title'] = meta_sections[3].strip(' ')
+            meta_dict['Individual Responses'] = int(re.findall(r"[0-9]+", meta_sections[2])[0])
             # Get the term and College Code from the filename
             col_header_mapper = dict(map(reversed, header_col_mapper.items()))
             str_file = file.decode('utf-8')
@@ -251,18 +246,18 @@ def parse_files(file):
             Q_uniq = [x for n, x in enumerate(question_numbers) if x not in question_numbers[:n] and x not in Q_dupes]
             # Make sure we have enough questions for all of the instructors
             assert len(question_numbers)-len(Q_uniq) - len(Q_dupes)*len(entry_list) == 0
-            pprint(Q_text)
+
             # Use the recursive separate to split Q_text into sections
             Q_sections = recursive_separate(Q_text, deepcopy(question_numbers), section_list = [])
             # pprint(Q_sections)
             # The first split section will sometimes contain the instructor name. If so, get drop it
             Sections_to_drop = set()
-            print(f'There are {len(entry_list)} in entry_list')
+            print(f'There are {len(entry_list)} instructors in this course')
             for entry in entry_list:
                 # Checking for Instr first or last name in the first element of Q_sections. If so, delete this element
                 if entry['Instructor First Name'].title() in Q_sections[0].title() or entry['Instructor Last Name'].title() in Q_sections[0].title():
                     del Q_sections[0]
-            
+                    break
             assert len(Q_sections) == len(question_numbers) 
 
             # Split the question sections up by instructors
@@ -342,19 +337,19 @@ if __name__ == '__main__':
         exit(0)
     # Run the main program
     else:
-        # print("Crawling the OU website...")
+        print("Crawling the OU website...")
  
-        # url = "http://www.ou.edu/provost/course-evaluation-data"
+        url = "http://www.ou.edu/provost/course-evaluation-data"
  
-        # names = web_crawl(url)
-        # print('\n\n')
-        # print(names)
-        # print('\n\n')
+        names = web_crawl(url)
+        print('\n\n')
+        print(names)
+        print('\n\n')
 
-        # print("Splitting PDFs... \n")
-        # for name in names:
-        #     print("Splitting: " + name)
-        #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+        print("Splitting PDFs... \n")
+        for name in names:
+            print("Splitting: " + name)
+            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
 
         directory = os.fsencode('pdfs/split/')
         files = os.listdir(directory)

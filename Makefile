@@ -18,26 +18,15 @@ ifeq (,$(wildcard ./pdfs/))
 	mkdir pdfs/
 	mkdir pdfs/split/
 endif
-
-ifneq (,$(wildcard successful_tests.txt))
-	touch successful_tests.txt
-endif
-
-ifneq (,$(wildcard failed_tests.txt))
+	touch crawling_evaluation.txt
 	touch failed_tests.txt
-endif
-
-ifneq (,$(wildcard ForkPoolWorker-1.txt))
-	touch ForkPoolWorker-1.txt
-	touch ForkPoolWorker-2.txt
-	touch ForkPoolWorker-3.txt
-	touch ForkPoolWorker-4.txt
-endif
-    rm crawling_evaluation.txt
-    rm ForkPoolWorker-*.txt
+	touch successful_tests.txt
+	touch ForkPoolWorker-1.txt ForkPoolWorker-2.txt ForkPoolWorker-3.txt ForkPoolWorker-4.txt
+	rm crawling_evaluation.txt
+	rm ForkPoolWorker-1.txt ForkPoolWorker-2.txt ForkPoolWorker-3.txt ForkPoolWorker-4.txt
 	rm successful_tests.txt
 	rm failed_tests.txt
-    rm -r pdfs/
+	rm -r pdfs/
 	mkdir pdfs/
 	mkdir pdfs/split/
 	mkdir pdfs/txts/
