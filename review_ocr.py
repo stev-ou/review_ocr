@@ -5,7 +5,7 @@ import urllib.error
 from multiprocessing import Pool
 import multiprocessing
 import re
-import pprint
+from pprint import pprint
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
@@ -75,7 +75,7 @@ def web_crawl(url):
     urls = []; names = []
     page = requests.get(url, timeout=5)
     soup = BeautifulSoup(page.text, "html.parser")
-    print(len(soup.findAll('div')))
+    pprint(len(soup.findAll('div')))
     # Each header with a 'articleheader' tag contains title for a college; 
     # Get this div, so we can check the next div for encompassed pdfs
     # This section gets all of the urls and puts them into urls[]. Names of each are put into names[], matched by index.
@@ -119,15 +119,15 @@ def web_crawl(url):
     return names
 
     # Finished scraping, all college semester names in names, urls, crawl_tracker status in crawl_tracker
-    with open('Crawling_evaluation.txt', 'w') as crawl_file:
+    with open('crawling_evaluation.txt', 'w') as crawl_file:
         crawl_results = [True if crawl_tracker[coll][year][sem] else False for coll in header_col_mapper.values() for year in CURRENT_YEARS for sem in SEMESTERS.keys()]
         true_counts, false_counts =crawl_results.count(True), crawl_results.count(False)
         crawl_file.write(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
         crawl_file.write(f' {CURRENT_YEARS}')
-        print(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
+        pprint.pprint(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
         print(f' {CURRENT_YEARS}\n')
         crawl_file.write(f'The specific crawling results are shown below: \n\n')
-        pprint.pprint(crawl_tracker, stream=crawl_file)
+        pprint(crawl_tracker, stream=crawl_file)
 
 def pdf_splitter(path, col, term):
     """
@@ -212,7 +212,6 @@ def parse_files(file):
             # Fill out the meta dict with info for all instructors
             meta_dict['Subject Code'] = re.findall(r"[A-Z ]+", meta_sections[1])[0].replace(' ', '')
             meta_dict['Course Number'] = int(re.findall(r"[0-9]+", meta_sections[1])[0])
-            meta_dict['Individual Responses'] = int(re.findall(r"[0-9]+", meta_sections[2])[0])
             meta_dict['Section Title'] = meta_sections[3].strip(' ') 
             # Get the term and College Code from the filename
             col_header_mapper = dict(map(reversed, header_col_mapper.items()))
@@ -252,22 +251,18 @@ def parse_files(file):
             Q_uniq = [x for n, x in enumerate(question_numbers) if x not in question_numbers[:n] and x not in Q_dupes]
             # Make sure we have enough questions for all of the instructors
             assert len(question_numbers)-len(Q_uniq) - len(Q_dupes)*len(entry_list) == 0
-            print(Q_text)
+            pprint(Q_text)
             # Use the recursive separate to split Q_text into sections
             Q_sections = recursive_separate(Q_text, deepcopy(question_numbers), section_list = [])
-            print(Q_sections)
+            # pprint(Q_sections)
             # The first split section will sometimes contain the instructor name. If so, get drop it
             Sections_to_drop = set()
             print(f'There are {len(entry_list)} in entry_list')
             for entry in entry_list:
-                for ss, sect in enumerate(Q_sections[0:1]): # Just checking the first section for now
-                    print(entry['Instructor First Name'])
-                    print(entry['Instructor Last Name'])
-                    if entry['Instructor First Name'].title() in sect.title() or entry['Instructor Last Name'].title() in sect.title():
-                        Sections_to_drop.add(ss)
-            print(Sections_to_drop)
-            for sect in sorted(Sections_to_drop, reverse=True): # Reverse them before removing to retain ordering
-                del Q_sections[sect]
+                # Checking for Instr first or last name in the first element of Q_sections. If so, delete this element
+                if entry['Instructor First Name'].title() in Q_sections[0].title() or entry['Instructor Last Name'].title() in Q_sections[0].title():
+                    del Q_sections[0]
+            
             assert len(Q_sections) == len(question_numbers) 
 
             # Split the question sections up by instructors
@@ -284,7 +279,7 @@ def parse_files(file):
                 # Fill out the questions
                 questions = []
                 # Zip together the question numbers and the partitioned sections
-                print(partitioned_Q_sections[el_i])
+                # Get question responses on a per question basis
                 for qn, qs in zip(Q_uniq + Q_dupes, partitioned_Q_sections[el_i]):
                     Q_dict = {}
                     # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
@@ -292,26 +287,35 @@ def parse_files(file):
                     Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
                     # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
                     Q_dict['Mean'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1])
-                    Q_dict['Standard Deviation'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3])
+                    try:
+                        # Try to get the standard deviation, if it doesnt work, that indicates the professor had zero responses
+                        Q_dict['Standard Deviation'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3])
+                    except:
+                        # If professor had zero responses, delete them
+                        break
+
                     # Ensure we're getting reasonable values for the mean, std
                     for metric in [Q_dict['Mean'], Q_dict['Standard Deviation']]:
                         assert (0 <= metric and metric <= 5)
                     # Add in the question ratings to the list
                     questions.append(Q_dict)
-
-                # Add the metadata to the individual questions to log them as rows in the table
-                for i in questions:
-                    for k,v in entry.items():
-                        i[k] = v
-                    db_objects.append(i)
+                else:
+                    # This 'else' clause gets hit when the inner loop wasnt broken
+                    # Add the metadata to the individual questions to log them as rows in the table
+                    for i in questions:
+                        for k,v in entry.items():
+                            i[k] = v
+                        db_objects.append(i)
+                    continue
+                break
 
         for i in db_objects:
             print("Adding " + i["Instructor First Name"] + " " +
                     i["Instructor Last Name"] + " to " + i["College Code"]+str(i['Term Code']))
             with open(str(current.name) + ".txt", "a+") as ff:
                 ff.write(str(i) + "\n")  
-            with open("successful_tests.txt", "a+") as runf:
-                runf.write(f + "\n")
+        with open("successful_tests.txt", "a+") as runf:
+            runf.write(f + "\n")
     
     # # Handle all of our potential errors. This is very general but future work could refine.
     # except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
@@ -330,7 +334,7 @@ if __name__ == '__main__':
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
     # Run the test case
     if sys.argv[2] == "True":
-        pdf_splitter("test/GCoE201920.pdf", "GCoE", "201920")
+        pdf_splitter("test/CoA201030.pdf", "CoA", "201030")
         directory = os.fsencode('test/split/')
         files = os.listdir(directory)
         for file in files[:]:
@@ -358,7 +362,7 @@ if __name__ == '__main__':
         CPUS = os.cpu_count()
         print(f"Number of CPU's detected: {CPUS}")
         print(f"Running with {CPUS//2} processes")
-        with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer. Doesnt take too long anyway
+        with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer step. Doesnt take too long anyway
             r = list(pool.imap(parse_files, files))
         
         # Build evaluation metric for parsing effectiveness
