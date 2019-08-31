@@ -30,5 +30,18 @@ make clean
 
 This will delete the pdfs folder, the results .txt files, and recreate them with the necessary subdirectories. **Be Careful!** as this command will delete any scraped results.
 
-### Current Scraping Statistics
-Parsing is currently successful for 96.8% of individual pdf pages. Program time depends upon machine and network, but recently on Macbook Pro 2013 crawling took ~20 minutes, splitting took ~1 minute, parsing took ~30 minutes, and uploading to MongoDB took ~90 minutes.
+## Current Statistics (08/31/2019)
+### Web Scraping
+Currently, 72.8% of colleges, semesters, and years are successfully scraped (the corresponding pdfs are successfully downloaded). However, the real number should actually be higher, because some pdfs on the course evaluations page are poor links, and others are simply missing entries (eg. Summer 2013 doesnt exist for Gallogly College of Engineering). I expect our true accuracy/ability to get existing links from the page is ~85%.
+
+### PDF Splitting
+PDF Splitting into single pages is 100% efficient.
+
+### Parsing
+Parsing is currently successful for 93.0% of individual pdf pages. This number is also a lower-end estimate, as many pdfs contain blank pages and other content that is not parse-able.
+
+### Overall
+Overall efficiency is (~85% * 93%) = ~79% of data on the webpage is scraped into the pdf.
+
+## Program RunTime
+Program time depends upon machine and network, but recently on Macbook Pro 2013 crawling took ~30 minutes, splitting took ~1 minute, parsing took ~60 minutes, and uploading to MongoDB took ~ 8 hours, for a total time of 
