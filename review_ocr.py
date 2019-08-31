@@ -140,7 +140,6 @@ def pdf_splitter(path, col, term):
     for page in range(pdf.getNumPages()):
         pdf_writer = PdfFileWriter()
         pdf_writer.addPage(pdf.getPage(page))
-
         output_filename = str(page+1) + col + term + ".pdf"
 
         try:
@@ -228,11 +227,11 @@ def parse_files(file):
                 instr_strings = [meta_sections[5].strip()]
             for instr_string in instr_strings:
                 entry_list.append(deepcopy(meta_dict)) # Each entry will have the same metadata; Different instrs
-                instr_string = ''.join([i for i in instr_string if i.isalnum() or i==' ']).strip()
-                entry_list[-1]['Instructor First Name'] = instr_string.split()[0].strip()
+                instr_string = ''.join([i for i in instr_string if i.isalnum() or i==' ' or i=='-']).strip()
+                entry_list[-1]['Instructor First Name'] = instr_string.split()[0].strip().title()
                 # Associate latter elements with thelast name. 
                 # Basically, this breaks 'Zach Van Dam' into FirstName: Zach, LastName: Van Dam
-                entry_list[-1]['Instructor Last Name'] = ' '.join(instr_string.split()[1:]).strip()
+                entry_list[-1]['Instructor Last Name'] = ' '.join(instr_string.split()[1:]).strip().title()
 
             ## Now that we know the number of instructors, we can parse the Question text (Q_text)
             # Separate the question averages from the Response Key
@@ -252,7 +251,7 @@ def parse_files(file):
             # pprint(Q_sections)
             # The first split section will sometimes contain the instructor name. If so, get drop it
             Sections_to_drop = set()
-            print(f'There are {len(entry_list)} instructors in this course')
+            # print(f'There are {len(entry_list)} instructors in this course')
             for entry in entry_list:
                 # Checking for Instr first or last name in the first element of Q_sections. If so, delete this element
                 if entry['Instructor First Name'].title() in Q_sections[0].title() or entry['Instructor Last Name'].title() in Q_sections[0].title():
