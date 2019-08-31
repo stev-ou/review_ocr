@@ -21,12 +21,12 @@ Make sure to check the MongoDB cluster for your proposed db_name to make sure th
 
 
 # TEST:
-make test
+`make test`
 
 test automatically cleans, "make clean" will not clean test folder
 
 # CLEAN:
-make clean
+`make clean`
 
 This will delete the pdfs folder, the results .txt files, and recreate them with the necessary subdirectories. **Be Careful!** as this command will delete any scraped results.
 
