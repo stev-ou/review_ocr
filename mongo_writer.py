@@ -16,8 +16,7 @@ def mongo_writer(file):
 
 	for line in tqdm(lines):
 		obj = eval(line)
-		# Collections are named by College Code
-		collection_name = obj["College Code"]
+		collection_name = 'reviews'
 		collection = db[collection_name]
 		collection.insert_one(obj)
 
