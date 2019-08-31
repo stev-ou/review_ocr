@@ -13,7 +13,6 @@ db = client[str(sys.argv[1])]
 def mongo_writer(file):
 	with open (file, "r") as f:
 		lines = f.readlines()
-	f.close()
 
 	for line in tqdm(lines):
 		obj = eval(line)

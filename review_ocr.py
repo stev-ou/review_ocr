@@ -123,11 +123,11 @@ def web_crawl(url):
         true_counts, false_counts =crawl_results.count(True), crawl_results.count(False)
         crawl_file.write(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
         crawl_file.write(f' {CURRENT_YEARS}')
-        pprint.pprint(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
+        pprint(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
         print(f' {CURRENT_YEARS}\n')
         crawl_file.write(f'The specific crawling results are shown below: \n\n')
         pprint(crawl_tracker, stream=crawl_file)
-        
+
     return names
 
 def pdf_splitter(path, col, term):
@@ -313,14 +313,14 @@ def parse_files(file):
             runf.write(f + "\n")
     
     # # Handle all of our potential errors. This is very general but future work could refine.
-    # except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
-    #     if hasattr(Error, '__name__'):
-    #         name = Error.__name__
-    #     else:
-    #         name = 'AssertionError'
-    #     with open("failed_tests.txt", "a+") as fail:
-    #         fail.write(file.decode('utf-8') + f": Failed due to {name}\n")
-    #     print(f'{name} at filename '+ file.decode('utf-8'))           
+    except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
+        if hasattr(Error, '__name__'):
+            name = Error.__name__
+        else:
+            name = 'AssertionError'
+        with open("failed_tests.txt", "a+") as fail:
+            fail.write(file.decode('utf-8') + f": Failed due to {name}\n")
+        print(f'{name} at filename '+ file.decode('utf-8'))           
 
 if __name__ == '__main__':
 
