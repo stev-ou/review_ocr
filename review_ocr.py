@@ -341,25 +341,26 @@ if __name__ == '__main__':
         print('\n\n')
         print(names)
         print('\n\n')
-
-        # print("Splitting PDFs... \n")
-        # for name in names:
-        #     print("Splitting: " + name)
-        #     pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
-
-        # directory = os.fsencode('pdfs/split/')
-        # files = os.listdir(directory)
-        # print("Parsing the split pdfs... \n")
-        # CPUS = os.cpu_count()
-        # print(f"Number of CPU's detected: {CPUS}")
-        # print(f"Running with {CPUS//2} processes")
-        # with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer step. Doesnt take too long anyway
-        #     r = list(pool.imap(parse_files, files))
         
-        # # Build evaluation metric for parsing effectiveness
-        # with open('successful_tests.txt', 'r') as f:
-        #     successful=sum(1 for _ in f)
-        # with open('failed_tests.txt', "r") as f:
-        #     failed =sum(1 for _ in f)
-        # print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
-        # exit(0)
+
+        print("Splitting PDFs... \n")
+        for name in names:
+            print("Splitting: " + name)
+            pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
+
+        directory = os.fsencode('pdfs/split/')
+        files = os.listdir(directory)
+        print("Parsing the split pdfs... \n")
+        CPUS = os.cpu_count()
+        print(f"Number of CPU's detected: {CPUS}")
+        print(f"Running with {CPUS//2} processes")
+        with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer step. Doesnt take too long anyway
+            r = list(pool.imap(parse_files, files))
+        
+        # Build evaluation metric for parsing effectiveness
+        with open('successful_tests.txt', 'r') as f:
+            successful=sum(1 for _ in f)
+        with open('failed_tests.txt', "r") as f:
+            failed =sum(1 for _ in f)
+        print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
+        exit(0)
