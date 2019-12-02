@@ -1,6 +1,12 @@
+# All pdf content is the data
 pdfs/*
-.DS_Store
+test/split/*
 
+# These are the results of the parsing
+ForkPoolWorker-*.txt
+
+.DS_Store
+.vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

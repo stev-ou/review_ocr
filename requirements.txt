@@ -1,6 +1,4 @@
-pytesseract
-pillow
-wand
+tika
 pypdf2
 beautifulsoup4
 requests

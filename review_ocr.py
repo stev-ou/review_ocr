@@ -4,55 +4,139 @@ import urllib.request
 import urllib.error
 from multiprocessing import Pool
 import multiprocessing
-
-try:
-    from PIL import Image
-except ImportError:
-    import Image
-import pytesseract
-from wand.image import Image as Img
-import pprint
+import re
+from pprint import pprint
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from bs4 import BeautifulSoup
 import requests
-from pymongo import MongoClient, errors
 import pymongo
 from tqdm import tqdm
 import time
+from copy import deepcopy
 from dns.exception import DNSException
+from tika import parser
 
-db_name = sys.argv[1]
-debug = ""
-
-CURRENT_YEARS = ["2013", "2014", "2015", "2016", "2017", "2018"]
+CURRENT_YEARS = ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019"]
 SEMESTERS = {"Spring": 20, "Summer": 30, "Fall": 10}
-# See line 217...
-BUG_CITY = ["_", "-", '—', "=", '__', "--", "==", '_—', '——']
-BUG_CITY2 = {"Bio": 57.35, "Bony": 55.17, "Sere)": 53.33, "Sle25)": 31.25, "mos": 7.35, "oo": 7.35, "Bro": 57.35, "FE": 5,
-             "iD": 5, "iD)": 5, "S": 5, "a": 5}
-FIND_Q = ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. ", "10. ",
-          "11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. ", "20. ",
-          "21. ", "22. ", "23. ", "24. ", "25. ", "26. ", "27. ", "28. ", "29. ", "30. ",
-          "31. ", "32. ", "33. ", "34. ", "35. ", "36. ", "37. ", "38. ", "39. ", "40. ",
-          ]
-baddata = []
 
+# These map the headers in the college to the short names in the db
+header_col_mapper = {'College of Architecture': 'CoA', 
+'College of Arts and Sciences': 'CoAaS', 
+'College of Atmospheric & Geographic Sciences': 'CoA&GS', 
+'College of Continuing Education - Department of Aviation': 'CoCE-DoA', 
+'Michael F. Price College of Business': 'MFPCoB', 
+'Melbourne College of Earth and Energy': 'MCoEaE', 
+'Jeannine Rainbolt College of Education': 'JRCoE', 
+'Gallogly College of Engineering': 'GCoE', 
+'Weitzenhoffer Family College of Fine Arts': 'WFCoFA', 
+'Honors College': 'HC', 'College of International Studies': 'CoIS', 
+'Gaylord College of Journalism and Mass Communication': 'GCoJaMC', 
+'College of Professional and Continuing Studies': 'CoPaCS', 
+'University College': 'UC', 'Center for Independent and Distance Learning': 'CfIaDL', 
+'Expository Writing Program': 'EWP', 'ROTC - Air Force': 'R-AF'}
+
+# Create parsing errors to use
+class ParsingError(Exception):
+    def __init__(self,  message):
+        super().__init__(message)
+        self.__name__ = 'ParsingError'
+
+## Parsing helper function
+def recursive_separate(textfile, separators, section_list = []):
+    """
+    Separates a textfile into a sequential list of sections as dictated by the separators.
+    Inputs: 
+    textfile: A long string to separate into different sections
+    separators: The keywords to separate the textfile by.
+    section_list: A list to append the sections to. Please pass in empty string.
+
+    Returns:
+    section_list: The list of each section of the string, separated by the separators keywords. 
+    Note that the resultant list wont contain the separator keywords
+    """
+    el = separators.pop(0)
+    splits = textfile.split(el)
+    front = splits[0]
+    back = el.join(splits[1:]).strip()
+    if back == '':
+        raise ParsingError('Separating failed for ' + textfile + ' \n\n with separating element- ' + el )
+    if front != '':
+        section_list.append(front)
+    if len(separators) == 0:
+        section_list.append(back)
+        return section_list
+    return recursive_separate(back, separators, section_list)
+
+def web_crawl(url):
+    """
+    This function will crawl the given url, and download specific pdfs that correspond to the 
+    entries in the header_col_mapper.
+    """
+    urls = []; names = []
+    page = requests.get(url, timeout=5)
+    soup = BeautifulSoup(page.text, "html.parser")
+    # Each header with a 'articleheader' tag contains title for a college; 
+    # Get this div, so we can check the next div for encompassed pdfs
+    # This section gets all of the urls and puts them into urls[]. Names of each are put into names[], matched by index.
+    # Make a structure to keep track of which have been successfully crawled and which havent
+    crawl_tracker = {coll:{year:{sem:False for sem in SEMESTERS.keys()} for year in CURRENT_YEARS} for coll in header_col_mapper.values()}
+    for i, div in enumerate(soup.findAll('div')):
+        if 'class' in div.attrs:
+            if 'articleheader' in div.attrs['class'] and len(div.text)>0:
+                # col_header is key to determine college
+                col_header = div.text.strip('\n\n')
+                col = header_col_mapper[col_header]
+                # The semesters for the colleges are in div index i+4; get anchors from this index
+                anchors = soup.findAll('div')[i+4].findChildren('a', recursive=True)
+                for a in anchors:
+                    for year in CURRENT_YEARS:
+                        for semester in SEMESTERS.keys():
+                            if semester in a.text and year in a.text:
+                                # We are only saving the urls/names of current years and desired colleges
+                                full_url = url + a.get('href')
+                                pdf_url = (full_url[:18] + full_url[49:])
+                                name = f'{col}{year}{SEMESTERS[semester]}'
+                                if not crawl_tracker[col][year][semester]: # only try to download if this is False
+                                    try:
+                                        print("Processing Name: " + name)
+                                        print("Attempting to open: " + pdf_url)
+                                        resp = urllib.request.urlopen(pdf_url)
+                                        try:
+                                            with open("pdfs/" + name + ".pdf", 'xb') as pdf:
+                                                print("Writing " + name + "\n")
+                                                pdf.write(resp.read())
+                                        except FileExistsError:
+                                            print(name + " ALREADY EXISTS IN DIRECTORY!!\n")
+                                        crawl_tracker[col][year][semester] = True
+                                        if pdf_url not in urls and name not in names: # Kind of sketchy, theoretically shouldnt be duplicates but they showed up
+                                            urls.append(pdf_url)
+                                            names.append(name)
+                                    # If downloading didnt work, the crawl_tracker entry doesnt get converted
+                                    except urllib.error.HTTPError:
+                                        print(f'404 Error for name: {name} and url {pdf_url}\n')
+
+    # Finished scraping, all college semester names in names, urls, crawl_tracker status in crawl_tracker
+    with open('crawling_evaluation.txt', 'w+') as crawl_file:
+        crawl_results = [True if crawl_tracker[coll][year][sem] else False for coll in header_col_mapper.values() for year in CURRENT_YEARS for sem in SEMESTERS.keys()]
+        true_counts, false_counts =crawl_results.count(True), crawl_results.count(False)
+        crawl_file.write(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
+        crawl_file.write(f' {CURRENT_YEARS}')
+        pprint(f'The crawling was {100*true_counts/len(crawl_results)}% effective at finding Semesters and colleges in the year range\n')
+        print(f' {CURRENT_YEARS}\n')
+        crawl_file.write(f'The specific crawling results are shown below: \n\n')
+        pprint(crawl_tracker, stream=crawl_file)
+    return names
 
 def pdf_splitter(path, col, term):
-    # This will take a pdf and split it into individual pages, saving them to directory pdfs/split
+    """
+    This function takes a pdf and splits it into individual pages, saving them to directory pdfs/split
+    """
     fname = os.path.splitext(os.path.basename(path))[0]
     pnum = 0
-    try:
-        pdf = PdfFileReader(path)
-    except FileNotFoundError:
-        print("==========================================================================================")
-        print("Cannot Find File: " + path)
-        print("==========================================================================================")
-        return
+    pdf = PdfFileReader(path)
     for page in range(pdf.getNumPages()):
         pdf_writer = PdfFileWriter()
         pdf_writer.addPage(pdf.getPage(page))
-
         output_filename = str(page+1) + col + term + ".pdf"
 
         try:
@@ -66,646 +150,217 @@ def pdf_splitter(path, col, term):
 
     return pnum
 
-
-def web_crawl(url):
-    # This function will crawl the given url, and download specific pdfs
-    urls = []
-    names = []
-    page = requests.get(url, timeout=5)
-    soup = BeautifulSoup(page.text, "html.parser")
-    for i, link in enumerate(soup.findAll('a')):
-        full_url = url + link.get('href')
-        if full_url.endswith('.pdf'):
-            sel = soup.select('a')[i].attrs['href']
-            for year in CURRENT_YEARS:
-                if year in sel:
-                    for semester in SEMESTERS.keys():
-                        if semester in sel:
-
-                            if "Sciences" in sel:
-                                col = "artsn"
-
-                            elif "Architecture" in sel:
-                                col = "arc"
-
-                            elif "Atmospheric" in sel:
-                                col = "geo"
-
-                            # Aviation
-                            elif "Business" in sel:
-                                col = "bus"
-
-                            elif "Energy" in sel:
-                                col = "nrg"
-
-                            elif "Education" in sel:
-                                col = "edu"
-
-                            elif "Engineering" in sel:
-                                col = "engr"
-
-                            elif "Fine" in sel:
-                                col = "farts"  # hahaha
-
-                            elif "International" in sel:
-                                col = "ints"
-
-                            elif "Journalism" in sel:
-                                col = "jrnl"
-
-                            elif "Professional" in sel:
-                                col = "prof"
-                            else:
-                                continue
-
-                            # We are only saving the urls/names of current years and desired colleges
-                            # Gotta git rid of some unnecessary characters in the url
-                            pdf_url = full_url[:18] + full_url[49:]
-                            if pdf_url not in urls:
-                                urls.append(pdf_url)
-                                names.append(str(col) + str(year) +
-                                             str(SEMESTERS[semester]))
-                                print("Adding %s to Write Queue..." % (
-                                    str(col) + str(year) + str(SEMESTERS[semester])))
-                                print(pdf_url + "\n")
-                            continue
-
-    names_urls = zip(names, urls)
-    # Now we "download" the pdfs by writing to pdf files
-    for name, url in names_urls:
-        try:
-            print("Attempting to open: " + url)
-            resp = urllib.request.urlopen(url)
-
-            try:
-                pdf = open("pdfs/" + name + ".pdf", 'xb')
-                print("Writing " + name + "\n")
-                pdf.write(resp.read())
-                pdf.close()
-            except FileExistsError:
-                print(name + " ALREADY EXISTS IN DIRECTORY!!\n")
-
-        except urllib.error.HTTPError:
-            print("404 Error on this page... This PDF may not exist yet.\n")
-            names.remove(name)
-
-    return names
-
-
-def bug_city(l, key):
-    # Welcome to Bug City
-    # Remove Citizens of Bug City1
-    for i in range(0, len(l)-1):
-        if l[i] in BUG_CITY:
-            l.pop(i)
-
-    for i in range(0, len(l)):
-        if l[i] in BUG_CITY2.keys():
-            l[i] = BUG_CITY2[l[i]]
-
-    new = []
-    k = 0
-    while k < len(l):
-        if l[k] == key:
-            new.append(l[k])
-            k += 1
-            break
-        else:
-            k += 1
-
-    for i in range(k, len(l)):
-        try:
-            f = float(l[i])
-            new.append(f)
-        except ValueError:
-            try:
-                n = int(l[i])
-                new.append(n)
-            except ValueError:
-                break
-
-    return new
-
-
 def parse_files(file):
+    """
+    This function extracts the text from a single page pdf file, then parses the text to fit into a defined schema.
+    Inputs: 
+    - file: The name of the single page pdf file to extract text from
+    Returns:
+    - Nothing, writes successfully parsed tests to successful_tests.txt, and tests that failed to parse to failed_tests.txt.
+    Also writes the db_objects, ie. the file text fit into the schema, into a ForkPoolWorker-1.txt. This is where the scraped data
+    gets read from for the upload to MongoDB in mongo_writer.py.
+    """
     try:
         current = multiprocessing.current_process()
         f = os.fsdecode(file)
 
-        # This file SUCKS!!!!
-        if f == "349ints201710.pdf":
-            return
-
         if f.endswith(".pdf"):
             print("Running: " + f)
-            dbdict = {}
-            instructor2 = {}  # In case there is a second/third instructor
-            instructor3 = {}
-
-            # Can't read from pdfs, so we need to convert each one to a jpg
-            with Img(filename=os.fsdecode(directory) + f, resolution=300) as img:
-                img.compression_quality = 99
-                img.save(filename='pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
-
-            # Now that we have a jpg, we can read it into text -  just a massive wall of text
-            img = Image.open('pdfs/jpgs/' + f.rstrip(".pdf") + '.jpg')
-            text = pytesseract.image_to_string(img)
-
-            # list of the dbdictionaries that will be added to the DataBase
-            db_objects = []
-
-            lines = text.splitlines()
-
-            ind = []
-            dept = []
-            college = []
-            similar = []
-            n, d, c, s = 0, 0, 0, 0
-
-            # Store only the necessary line information, since sometimes lines are mixed together
-            for i in range(0, len(lines)):
-                if "INDIVIDUAL" in lines[i]:
-                    ind.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "INDIVIDUAL")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "INDIVIDUAL":
-                            ind[n].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                ind[n].append(tokens[t])
-                                t += 1
-                            if len(ind[n]) < 4:
-                                ind.pop(n)
-                                break
-                            else:
-                                n += 1
-                                break
-
-                elif "DEPARTMENT" in lines[i]:
-                    dept.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "DEPARTMENT")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "DEPARTMENT":
-                            dept[d].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                dept[d].append(tokens[t])
-                                t += 1
-                            if len(dept[d]) < 4:
-                                dept.pop(d)
-                                break
-                            else:
-                                d += 1
-                                break
-
-                elif "SIMILAR" in lines[i]:
-                    similar.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "SIMILAR")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "SIMILAR_COL":
-                            similar[s].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                similar[s].append(tokens[t])
-                                t += 1
-                            if len(similar[s]) < 4:
-                                similar.pop(s)
-                                break
-                            else:
-                                s += 1
-                                break
-
-                elif "COLLEGE" in lines[i]:
-                    college.append([])
-                    tokens = lines[i].split(" ")
-                    tokens = bug_city(tokens, "COLLEGE")
-                    t = 0
-                    for t in range(0, len(tokens)):
-                        if tokens[t] == "COLLEGE":
-                            college[c].append(tokens[t])
-                            t += 1
-                            while t < len(tokens) and (isinstance(tokens[t], float) or isinstance(tokens[t], int)):
-                                college[c].append(tokens[t])
-                                t += 1
-                            if len(college[c]) < 4:
-                                college.pop(c)
-                                break
-                            else:
-                                c += 1
-                                break
-
-            try:
-                for i in range(len(lines)-1, -1, -1):
-                    tokens = lines[i].split(" ")
-                    debug = "Question"
-                    for q in FIND_Q:
-                        if q in lines[i]:
-                            """
-                            # This is to handle wrapping text
-                            if i+1 < len(lines) and len(lines[i+1]) >= 2:
-                                    lines[i] += " " + lines[i+1]
-                            """
-                            # Make sure this question has not already been added, iterate through whole list
-                            added = False
-                            for obj in db_objects:
-                                if int(tokens[0].strip('.')) in obj.values():
-                                    added = True
-                                    break
-                            if added == False:
-                                #db_objects.append({"Question": lines[i][3:].lstrip(" "), "Question Number": int(tokens[0].strip('.'))})
-                                try:
-                                    db_objects.append(
-                                        {"Question Number": int(tokens[0].strip('.'))})
-                                except ValueError:
-                                    print("============================================================================================================")
-                                    print("Bad Parse!! OCR could not read Questions " + f)
-                                    collection_name = "bad_data"
-                                    baddata.append(f)
-                                    with open("baddata.txt", "a+") as ff:
-                                        ff.write(f + "\n")
-                                    print("============================================================================================================")
-                        else:
-                            continue
-
-                # x is to keep track of which db object we are adding data to
-                x = len(db_objects)-1
-                y = 0
-                #IDSC BLOCK
-                while x > -1 and y < len(ind):
-                    try:
-                        debug = "INDIVIDUAL"
-                        db_objects[x]["Mean"] = float(ind[y][1])
-
-                        # Sometimes theres no median for no apparent reason :)
-                        try:
-                            db_objects[x]["Median"] = int(ind[y][2])
-                        except ValueError:
-                            db_objects[x]["Median"] = -1
-
-                        db_objects[x]["Standard Deviation"] = float(ind[y][3])
-                        db_objects[x]["Percent Rank - Department"] = float(
-                            ind[y][-2])
-                        db_objects[x]["Percent Rank - College"] = float(ind[y][-1])
-
-                        debug = "DEPARTMENT"
-                        db_objects[x]["Department Mean"] = float(dept[y][1])
-                        db_objects[x]["Department Median"] = int(dept[y][2])
-                        db_objects[x]["Department Standard Deviation"] = float(
-                            dept[y][3])
-
-                        if y < len(similar) and similar[y]:
-                            debug = "SIMILAR"
-                            db_objects[x]["Similar College Mean"] = float(
-                                similar[y][1])
-                            db_objects[x]["Similar College Median"] = int(
-                                similar[y][2])
-
-                        debug = "COLLEGE"
-                        db_objects[x]["College Mean"] = float(college[y][1])
-                        db_objects[x]["College Median"] = int(college[y][2])
-                        x -= 1
-                        y += 1
-
-                    except ValueError:
-                        print("==========================================================================================")
-                        print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
-                        err = [ind, dept, college, similar]
-                        print(err)
-                        print(debug + str(y))
-                        collection_name = "bad_data"
-                        baddata.append(f)
-                        with open("baddata.txt", "a+") as ff:
-                            ff.write(f + "\n")
-                        print("==========================================================================================")
-                        break
-
-                    except IndexError:
-                        print("==========================================================================================")
-                        print("Bad Data in IDSC Block! Going to need manual input for this document..." + f)
-                        err = [ind, dept, college, similar]
-                        print(err)
-                        print(debug + str(y))
-                        collection_name = "bad_data"
-                        baddata.append(f)
-                        with open("baddata.txt", "a+") as ff:
-                            ff.write(f + "\n")
-                        print("==========================================================================================")
-                        break
-
-                # Need to iterate twice bc sometimes it reads out of order
-                i = 
-
-                while i < len(lines):
-                    if "College of" in lines[i]:
-                        tokens = lines[i].split(" ")
-                        debug = "College of"
-                        if tokens[2] == "Business":
-                            dbdict["College Code"] = "BUS"
-
-                        elif tokens[2] == "Architecture":
-                            dbdict["College Code"] = "ARC"
-
-                        elif tokens[2] == "Arts":
-                            dbdict["College Code"] = "ARTSN"
-
-                        elif tokens[2] == "Atmospheric":
-                            dbdict["College Code"] = "GEO"
-
-                        # Aviation
-
-                        elif tokens[2] == "Earth":
-                            dbdict["College Code"] = "NRG"
-
-                        elif tokens[2] == "Education":
-                            dbdict["College Code"] = "EDU"
-
-                        elif tokens[2] == "Engineering":
-                            dbdict["College Code"] = "ENGR"
-
-                        elif tokens[2] == "Fine":
-                            dbdict["College Code"] = "FARTS"  # haha
-
-                        # Honors College
-
-                        elif tokens[2] == "International":
-                            dbdict["College Code"] = "INTS"
-
-                        elif tokens[2] == "Journalism":
-                            dbdict["College Code"] = "JRNL"
-
-                        elif tokens[2] == "Professional":
-                            dbdict["College Code"] = "PROF"
-
-                        # University College
-
-                        # Center for Independent and Distant Learning
-
-                        # Expository Writing
-
-                        # ROTC
-
-                    elif "Total Enrollment" in lines[i]:
-                        tokens = lines[i].split(" ")
-                        debug = "Total Enrollment"
-                        for n in range(0, len(tokens)):
-                            if 'Enrollment' in tokens[n]:
-                                dbdict["Instructor Enrollment"] = int(tokens[n+1])
-
-                    if "Course:" in lines[i]:
-                        tokens = lines[i].split(" ")
-                        debug = "Course:"
-                        dbdict["course_uuid"] = tokens[1].lower() + tokens[2][:4]
-                        dbdict["Subject Code"] = tokens[1]
-
-                        # Some Subject Codes are separated by spaces
-                        try:
-                            dbdict["Course Number"] = int(tokens[2][:4])
-                            dbdict["Section Number"] = int(tokens[2][-3:])
-                        except ValueError:
-                            dbdict["Subject Code"] += tokens[2]
-                            dbdict["Course Number"] = int(tokens[3][:4])
-                            dbdict["Section Number"] = int(tokens[3][-3:])
-
-                    elif "Instructors:" in lines[i] or "instructors:" in lines[i]:
-                        print(lines[i])
-                        debug = "Instructors:"
-                        tokens = lines[i].split(" ")
-                        dbdict["Instructor First Name"] = tokens[1].title()
-                        dbdict["Instructor Last Name"] = tokens[2].title()
-                        instructor2["Instructor First Name"] = tokens[4].title()
-                        instructor2["Instructor Last Name"] = tokens[5].title()
-                        if len(tokens) > 6:
-                            if tokens[6] == "/":
-                                instructor3["Instructor First Name"] = tokens[7].title()
-                                instructor3["Instructor Last Name"] = tokens[8].title()
-
-                    elif "Instructor:" in lines[i] or "instructor:" in lines[i]:
-                        print(lines[i])
-                        debug = "Instructor:"
-                        tokens = lines[i].split(" ")
-                        dbdict["Instructor First Name"] = tokens[1].title()
-                        dbdict["Instructor Last Name"] = tokens[2].title()
-                        if len(tokens) > 3:
-                            dbdict["Instructor Last Name"] += tokens[3].title()
-
-                    elif "Section Title" in lines[i]:
-                        debug = "Section Title"
-                        dbdict["Section Title"] = lines[i][15:]
-
-                    i += 1
-
-                # find if we are testing or not, use appropriate collection
-                """
-                if sys.argv[2] == "True":
-                    collection_name = "test_joe"
-                else:
-                    try:
-                        collection_name = dbdict["College Code"].upper()
-                        collection = db[collection_name]
-                    except KeyError:
-                        collection_name = "bad_data"
-                        collection = db[collection_name]
-                """
-
-            except ValueError:
-                print("============================================================================================================")
-                print("Bad Data Here!! May have to manually input!! " + f)
-                print(tokens)
-                print(debug)
-                baddata.append(f + "\n")
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f)
-
-                print("============================================================================================================")
-
-            except IndexError:
-                print("============================================================================================================")
-                print("Bad Data Here!! May have to manually input!! " + f)
-                print(tokens)
-                print(debug)
-                baddata.append(f)
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f + "\n")
-
-                print("============================================================================================================")
-
-            except KeyError as e:
-                print("============================================================================================================")
-                print("Bad Data Here!! May have to manually input!! " + f)
-                print(e)
-                print(tokens)
-                print(debug)
-                baddata.append(f)
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f + "\n")
-                print("============================================================================================================")
-
-            try:
-
-                for i in range(0, len(db_objects)):
-                    db_objects[i]["Term Code"] = int(f.rstrip(".pdf")[-6:])
-                    db_objects[i]["College Code"] = dbdict["College Code"]
-                    db_objects[i]["Subject Code"] = dbdict["Subject Code"]
-                    db_objects[i]["Course Number"] = dbdict["Course Number"]
-                    db_objects[i]["Section Number"] = dbdict["Section Number"]
-                    db_objects[i]["Section Title"] = dbdict["Section Title"]
-                    db_objects[i]["Instructor First Name"] = dbdict["Instructor First Name"]
-                    db_objects[i]["Instructor Last Name"] = dbdict["Instructor Last Name"]
-                    """
-                    find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                                   'Instructor Last Name': dbdict["Instructor Last Name"]})
-                    # If this professor already has an ID
-                    if find_id != None:
-                        db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                    
-                    # Else just use python's hash function to make one for them, should be sufficiently unique
-                    else:
-                    """
-                    db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                    print("Adding " + dbdict["Instructor First Name"] + " " +
-                          dbdict["Instructor Last Name"] + " to " + dbdict["College Code"])
-                    #collection.insert_one(db_objects[i])
-                    with open(str(current.name) + ".txt", "a+") as ff:
-                        ff.write(str(db_objects[i]) + "\n")
-
-
-                # If there is an Instructor 2, just change the name and ID
-                if instructor2:
-                    for i in range(0, len(db_objects)):
-                        # Instructor ID
-                        db_objects[i]["Instructor First Name"] = instructor2["Instructor First Name"]
-                        db_objects[i]["Instructor Last Name"] = instructor2["Instructor Last Name"]
-                        # Needed so that we arent trying to add a duplicate object_id
-                        db_objects[i].pop('_id', None)
-
-                        """
-                        find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                                       'Instructor Last Name': dbdict["Instructor Last Name"]})
-                        # If this professor already has an ID
-                        if find_id != None:
-                            db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                        
-
-                        # Else just use python's hash function to make one for them, should be sufficiently unique
-                        else:
-                        """
-                        db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                        print("Adding " + instructor2["Instructor First Name"] + " " +
-                              instructor2["Instructor Last Name"] + " to " + dbdict["College Code"])
-
-                        #collection.insert_one(db_objects[i])
-
-                        with open(str(current.name) + ".txt", "a+") as ff:
-                            ff.write(str(db_objects[i]) + "\n")
-
-                # If there is an Instructor 2, just change the name and ID
-                if instructor3:
-                    for i in range(0, len(db_objects)):
-                        # Instructor ID
-                        db_objects[i]["Instructor First Name"] = instructor3["Instructor First Name"]
-                        db_objects[i]["Instructor Last Name"] = instructor3["Instructor Last Name"]
-                        # Needed so that we arent trying to add a duplicate object_id
-                        db_objects[i].pop('_id', None)
-
-                        """
-                        find_id = collection.find_one({'Instructor First Name': dbdict["Instructor First Name"],
-                                                       'Instructor Last Name': dbdict["Instructor Last Name"]})
-                        # If this professor already has an ID
-                        if find_id != None:
-                            db_objects[i]["Instructor ID"] = find_id["Instructor ID"]
-                        
-
-                        # Else just use python's hash function to make one for them, should be sufficiently unique
-                        else:
-                        """
-                        db_objects[i]["Instructor ID"] = hash(dbdict["Instructor First Name"] + dbdict["Instructor Last Name"])
-                        print("Adding " + instructor3["Instructor First Name"] + " " +
-                              instructor3["Instructor Last Name"] + " to " + dbdict["College Code"])
-
-                        #collection.insert_one(db_objects[i])
-
-                        with open(str(current.name) + ".txt", "a+") as ff:
-                            ff.write(str(db_objects[i]) + "\n")
-
-            except KeyError:
-                print("============================================================================================================")
-                print("Could Not Add to DB!! OCR likely read in a strange manner... See what field we are missing from " + f)
-                print(db_objects[i])
-                baddata.append(f)
-                with open("baddata.txt", "a+") as ff:
-                    ff.write(f + "\n")
-                print("============================================================================================================")
-
-
-        with open("run_files.txt", "a+") as runf:
-            runf.write(f + "\n")
-
-        file_name = os.fsencode("pdfs/jpgs/" + f.rstrip(".pdf") + ".jpg")
-        os.remove(file_name)
-
-        return
-
-    except pymongo.errors.AutoReconnect:
-        print("sleeping...")
-        baddata.append(f)
-        with open("baddata.txt", "a+") as ff:
-            ff.write(f + "\n")
-        time.sleep(300)
-        return
-
-    except DNSException:
-        print("DNS Timeout... sleeping for a bit...")
-        baddata.append(f)
-        with open("baddata.txt", "a+") as ff:
-            ff.write(f + "\n")
-        time.sleep(300)
-        return
-
+            raw = parser.from_file(directory + file)
+            text_Tika = raw['content']
+            lines = text_Tika.splitlines()
+            # Save the txt file for reference; this could be eliminated in future iterations, its not used anywhere.
+            with open('pdfs/txts/' + f.rstrip(".pdf")+ '.txt', 'w') as txtf:
+                txtf.write(raw['content'])
+
+            # Drop out the empty lines
+            lines= [i for i in lines if i != '']
+
+            # Combine the lines into a single string (they werent sorted by line correctly anyway)
+            full_text = ' '.join(lines)
             
+            # Separate out the metadata from from the question information
+            meta, Q_text = full_text.split(' College Rank')
+
+            ## Parse the meta data to find the number of instructors
+            # Parse the metadata for fields of interest
+            # Can get Term Code and College Code from pdf name
+            # Still need 'Subject Code', 'Course Number', 'Individual Responses', 'Section Title'
+            # Use keywords to split the metadata into sections
+            # Instuctors is IMPORTANT. Has large impact on functionality downstream.
+            if ' Instructors: ' in meta:
+                Instructors = True
+                # If Instructors: use this keyword
+                meta_sections = recursive_separate(meta, [' Course: ', ' Enrollment: ', ' Section Title: ', ' Course Level: ', ' Instructors: ', ' Section Size: '], section_list = [])
+            else:
+                Instructors = False
+                # If Instructor: , use this keyword
+                meta_sections = recursive_separate(meta, [' Course: ', ' Enrollment: ', ' Section Title: ', ' Course Level: ', ' Instructor: ', ' Section Size: '], section_list = [])
+                # Define meta object to store each of the metadata fields
+            # fields = ['Subject Code', 'Course Number', 'Individual Responses', 'Section Title', 'Instructor First Name', 'Instructor Last Name']
+            entry_list = []; meta_dict = {} # entry lists will have one meta_dict per instructor found
+            # Fill out the meta dict with info for all instructors
+            meta_dict['Subject Code'] = re.findall(r"[A-Z ]+", meta_sections[1])[0].replace(' ', '')
+            meta_dict['Course Number'] = int(re.findall(r"[0-9]+", meta_sections[1])[0])
+            meta_dict['Section Title'] = meta_sections[3].strip(' ')
+            meta_dict['Individual Responses'] = int(re.findall(r"[0-9]+", meta_sections[2])[0])
+            # Get the term and College Code from the filename
+            col_header_mapper = dict(map(reversed, header_col_mapper.items()))
+            str_file = file.decode('utf-8')
+            col = re.findall(r"[A-z]+", str_file)[0]
+            if col in col_header_mapper.keys():
+                meta_dict['College Code'] = col
+                meta_dict['Term Code'] = int(re.findall(r"[2][0][1-3][0-9][123][0]", str_file)[-1])
+            else:
+                raise ParsingError(f'The filename {str_file} cannot be parsed to obtain college code and term code')
+                        
+            assert(len(re.findall(r"[0-9]+", meta_sections[5]))==0) # Make sure the name is all non-numeric
+            # Define instructor list for adding instructors to
+            if Instructors:
+                # Get each of the instructor strings into instr_strings
+                instr_strings = []
+                [instr_strings.append(ms.strip()) for ms in meta_sections[5].split('/')]
+            else:
+                instr_strings = [meta_sections[5].strip()]
+            for instr_string in instr_strings:
+                entry_list.append(deepcopy(meta_dict)) # Each entry will have the same metadata; Different instrs
+                instr_string = ''.join([i for i in instr_string if i.isalnum() or i==' ' or i=='-']).strip()
+                entry_list[-1]['Instructor First Name'] = instr_string.split()[0].strip().title()
+                # Associate latter elements with thelast name. 
+                # Basically, this breaks 'Zach Van Dam' into FirstName: Zach, LastName: Van Dam
+                entry_list[-1]['Instructor Last Name'] = ' '.join(instr_string.split()[1:]).strip().title()
+
+            ## Now that we know the number of instructors, we can parse the Question text (Q_text)
+            # Separate the question averages from the Response Key
+            Q_text, _ = Q_text.split(' Response Key ')
+
+            # Find the Question Numbers and use to get the questions
+            question_numbers = re.findall(r'( [0-9]{1,2}\. )', Q_text)
+
+            # Find duplicate elements in the question_numbers list; Duplicate questions indicate multiple instructors
+            Q_dupes = [x for n, x in enumerate(question_numbers) if x in question_numbers[:n]]
+            Q_uniq = [x for n, x in enumerate(question_numbers) if x not in question_numbers[:n] and x not in Q_dupes]
+            # Make sure we have enough questions for all of the instructors
+            assert len(question_numbers)-len(Q_uniq) - len(Q_dupes)*len(entry_list) == 0
+
+            # Use the recursive separate to split Q_text into sections
+            Q_sections = recursive_separate(Q_text, deepcopy(question_numbers), section_list = [])
+            # pprint(Q_sections)
+            # The first split section will sometimes contain the instructor name. If so, get drop it
+            Sections_to_drop = set()
+            # print(f'There are {len(entry_list)} instructors in this course')
+            for entry in entry_list:
+                # Checking for Instr first or last name in the first element of Q_sections. If so, delete this element
+                if entry['Instructor First Name'].title() in Q_sections[0].title() or entry['Instructor Last Name'].title() in Q_sections[0].title():
+                    del Q_sections[0]
+                    break
+            assert len(Q_sections) == len(question_numbers) 
+
+            # Split the question sections up by instructors
+            partitioned_Q_sections = [-1]*len(entry_list) # Need as many sections as entries
+            shared_sections, sections_by_instructor = Q_sections[:len(Q_uniq)], Q_sections[len(Q_uniq):]
+            for c in range(len(partitioned_Q_sections)):
+                partitioned_Q_sections[c] = shared_sections + sections_by_instructor[c*len(Q_dupes):(c+1)*len(Q_dupes)]
+            assert len(set([len(pQs) for pQs in partitioned_Q_sections])) == 1 # Ensure all Q sections are same length
+            
+            # We'll parse the questions for each entry in entry_list
+            # Add the final result to db_objects, for writing to file
+            db_objects = []
+            for el_i, entry in enumerate(entry_list):
+                # Fill out the questions
+                questions = []
+                # Zip together the question numbers and the partitioned sections
+                # Get question responses on a per question basis
+                for qn, qs in zip(Q_uniq + Q_dupes, partitioned_Q_sections[el_i]):
+                    Q_dict = {}
+                    # Assigns the question content as a value and the question number as key in a dict, which is added to 'questions' list
+                    Q_dict['Question Number'] =  int(qn.strip(' ').strip('.'))
+                    Q_dict['Question'] =  re.findall(r"[A-z, , ', \,, ]*", qs)[0].replace(' INDIVIDUAL ', '').strip(' ')
+                    # Find the question instructor rating based on known column after INSTRUCTOR (tabular format)
+                    Q_dict['Mean'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+1])
+                    try:
+                        # Try to get the standard deviation, if it doesnt work, that indicates the professor had zero responses
+                        Q_dict['Standard Deviation'] = float(qs.split(' ')[qs.split(' ').index('INDIVIDUAL')+3])
+                    except:
+                        # If professor had zero responses, delete them
+                        break
+
+                    # Ensure we're getting reasonable values for the mean, std
+                    for metric in [Q_dict['Mean'], Q_dict['Standard Deviation']]:
+                        assert (0 <= metric and metric <= 5)
+                    # Add in the question ratings to the list
+                    questions.append(Q_dict)
+                else:
+                    # This 'else' clause gets hit when the inner loop wasnt broken
+                    # Add the metadata to the individual questions to log them as rows in the table
+                    for i in questions:
+                        for k,v in entry.items():
+                            i[k] = v
+                        db_objects.append(i)
+                    continue
+                break
+
+        for i in db_objects:
+            print("Adding " + i["Instructor First Name"] + " " +
+                    i["Instructor Last Name"] + " to " + i["College Code"]+str(i['Term Code']))
+            with open(str(current.name) + ".txt", "a+") as ff:
+                ff.write(str(i) + "\n")  
+        with open("successful_tests.txt", "a+") as runf:
+            runf.write(f + "\n")
+    
+    # # Handle all of our potential errors. This is very general but future work could refine.
+    except (ValueError, ParsingError, AssertionError, IndexError, AttributeError) as Error:
+        if hasattr(Error, '__name__'):
+            name = Error.__name__
+        else:
+            name = 'AssertionError'
+        with open("failed_tests.txt", "a+") as fail:
+            fail.write(file.decode('utf-8') + f": Failed due to {name}\n")
+        print(f'{name} at filename '+ file.decode('utf-8'))           
 
 if __name__ == '__main__':
 
+    # Catch Incorrect program calls
     if len(sys.argv) < 3 or len(sys.argv) > 3:
         print("USAGE: review_ocr %s %s" % "db_name", "test_bool")
-
+    # Run the test case
     if sys.argv[2] == "True":
-        pdf_splitter("test/bus201410.pdf", "bus", "201410")
+        pdf_splitter("test/CoA201030.pdf", "CoA", "201030")
         directory = os.fsencode('test/split/')
-        parse_files(directory)
+        files = os.listdir(directory)
+        for file in files[:]:
+            _ = parse_files(file)
         exit(0)
-
+    # Run the main program
     else:
-        """
-        print("Crawling...")
+        print("Crawling the OU website...")
  
         url = "http://www.ou.edu/provost/course-evaluation-data"
  
         names = web_crawl(url)
- 
-        # print(names)
+        print('\n\n')
+        print(names)
+        print('\n\n')
+        
+
+        print("Splitting PDFs... \n")
         for name in names:
             print("Splitting: " + name)
             pdf_splitter("pdfs/" + name + ".pdf", name[:-6], name[-6:])
-        """
 
         directory = os.fsencode('pdfs/split/')
         files = os.listdir(directory)
-        # parse_files(directory)
-
+        print("Parsing the split pdfs... \n")
         CPUS = os.cpu_count()
-        print("Number of CPU's detected: {}".format(CPUS))
-        print("Running with {} processes".format(CPUS//2))
-        #list(map(parse_files, files))
-        #with Pool(processes=CPUS//2) as pool:
-        
-        with Pool(processes=4) as pool:
+        print(f"Number of CPU's detected: {CPUS}")
+        print(f"Running with {CPUS//2} processes")
+        with Pool(processes=4) as pool: # Must be 4 processes for future mongo_writer step. Doesnt take too long anyway
             r = list(pool.imap(parse_files, files))
         
-
+        # Build evaluation metric for parsing effectiveness
+        with open('successful_tests.txt', 'r') as f:
+            successful=sum(1 for _ in f)
+        with open('failed_tests.txt', "r") as f:
+            failed =sum(1 for _ in f)
+        print(f'\n\n The parsing program successfully parsed {round(100*successful/(successful+failed),4)} % of files.')
         exit(0)
